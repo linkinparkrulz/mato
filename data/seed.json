@@ -1,0 +1,30 @@
+{
+  "nodes": [
+    {
+      "id": "mainnet-anchor",
+      "network": "mainnet",
+      "name": "Anchor",
+      "status": "inactive",
+      "paynym": "+testanchor",
+      "paymentCode": "PM8TJdDvSv3KnBPDvQZXCmHsGz4jYaQygzkGx1X3jzZXNrcvddgkHHURhU5NksCgqgAWY163A9eq67HYuWmiqKCHs1h511CQDjWkd5WqSU16mxkUsmmE",
+      "jurisdiction": "Nowhere",
+      "country": "AQ",
+      "hardware": "test fixture",
+      "version": "1.28.0",
+      "checked_at": null,
+      "payload": {
+        "pairing": {
+          "type": "dojo.api",
+          "version": "1.28.0",
+          "apikey": "0000000000000000000000000000000000000000",
+          "url": "http://anchoraaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaad.onion/v2"
+        },
+        "explorer": {
+          "type": "explorer.btc_rpc_explorer",
+          "url": "http://explorerbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbd.onion"
+        }
+      },
+      "signed": "-----BEGIN BITCOIN SIGNED MESSAGE-----\n{\"pairing\":{\"type\":\"dojo.api\",\"version\":\"1.28.0\",\"apikey\":\"0000000000000000000000000000000000000000\",\"url\":\"http://anchoraaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaad.onion/v2\"},\"explorer\":{\"type\":\"explorer.btc_rpc_explorer\",\"url\":\"http://explorerbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbd.onion\"}}\n\nBIP47:\nPM8TJdDvSv3KnBPDvQZXCmHsGz4jYaQygzkGx1X3jzZXNrcvddgkHHURhU5NksCgqgAWY163A9eq67HYuWmiqKCHs1h511CQDjWkd5WqSU16mxkUsmmE\n-----BEGIN BITCOIN SIGNATURE-----\nVersion: Bitcoin-qt (1.0)\nAddress: 1ARrkKz85AZvsx4KfuBQT562XVamA4pWu6\n\nIHDLTmijaSxRlsNFUt7zd69ctbc/RwPtJEwGzPPUAO7XM+1UgxcMuk5JVEGQZt8erU6TJOpDpKJAtJjqi5C1nAQ=\n-----END BITCOIN SIGNATURE-----"
+    }
+  ]
+}

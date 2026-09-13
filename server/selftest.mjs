@@ -481,7 +481,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
      "approved edit publishes immediately; card version stays the API-derived value, ignoring the edit");
 
   const clashOwn = await api("/api/dojo/edit", "POST", { id: "mainnet-selftest-node", name: "zulu" });
-  const clashSeed = await api("/api/dojo/edit", "POST", { id: "mainnet-selftest-node", name: "Maxtannahill" });
+  const clashSeed = await api("/api/dojo/edit", "POST", { id: "mainnet-selftest-node", name: "Anchor" });
   ok(clashOwn.status === 409 && clashSeed.status === 409,
      "renames rejected when colliding with own other record or the anchor seed node");
 
