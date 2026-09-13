@@ -16,6 +16,8 @@
     "allowImportingTsExtensions": true
   },
   "include": [
+    "gateway/**/*.mjs",
+    "gateway/**/*.ts",
     "server/**/*.mjs",
     "server/**/*.ts",
     "scripts/**/*.mjs",

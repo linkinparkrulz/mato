@@ -51,6 +51,26 @@ export type AddressType = "p2pkh" | "p2sh" | "p2wpkh";
  */
 export const DEFAULT_ADDRESS_TYPE: AddressType = "p2pkh";
 
+const ADDRESS_TYPES: readonly AddressType[] = ["p2pkh", "p2sh", "p2wpkh"];
+
+/**
+ * Read an address type from operator configuration, refusing anything else.
+ *
+ * A typo in this setting must not fall back to the default: the operator would
+ * get a chain their wallet may not scan while believing they had chosen the one
+ * it does, and the first sign of trouble would be a customer's payment that
+ * nobody can see. An empty value means "unset", and takes the default.
+ */
+export function parseAddressType(value: string | undefined | null): AddressType {
+  const v = String(value ?? "").trim();
+  if (!v) return DEFAULT_ADDRESS_TYPE;
+  const found = ADDRESS_TYPES.find((t) => t === v);
+  if (!found) {
+    throw new Error(`unknown address type ${JSON.stringify(v)}: expected one of ${ADDRESS_TYPES.join(", ")}`);
+  }
+  return found;
+}
+
 const bip47 = BIP47Factory(ecc);
 
 /** Load the store's own identity from its BIP39 seed. Holds private keys. */
