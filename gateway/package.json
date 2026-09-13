@@ -1,0 +1,22 @@
+{
+  "name": "store-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "BIP47 wallet gateway: derives invoice addresses in the operator's personal wallet chain. Holds a key that cannot spend.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node gateway.mjs",
+    "test": "node selftest.mjs"
+  },
+  "dependencies": {
+    "@dojo-tools/bip47": "2.0.0",
+    "@dojo-tools/bitcoinjs-message": "4.0.0",
+    "@bitcoinerlab/secp256k1": "1.2.0"
+  },
+  "devDependencies": {
+    "bip39": "3.1.0"
+  }
+}

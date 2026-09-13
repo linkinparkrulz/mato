@@ -1,0 +1,122 @@
+// =============================================================================
+// BIP47 invoice-address derivation.
+//
+// This is the one module where a mistake costs a customer their money rather
+// than costing the site a page render, so it states its invariants loudly and
+// selftest.mjs holds it to the published BIP47 test vectors rather than to its
+// own output.
+//
+// WHAT AN INVOICE ADDRESS IS. The store derives addresses on the OPERATOR'S
+// PERSONAL wallet chain: the customer pays there, and only the personal wallet
+// can spend. The store's own key never controls a satoshi of it.
+//
+//   address_i = P_i + SHA256( store_priv₀ × P_i )·G      P = personal code
+//
+// THE TRAP, and the reason every call here goes through one function. The
+// library's two classes both expose getPaymentAddress(counterparty, idx), and
+// both directions return the SAME address, so a wrong call does not throw and
+// does not look wrong — it silently returns an address on the wrong chain. The
+// rule that decides it:
+//
+//   the address lands on the chain of the object the method is called ON.
+//   the argument is the counterparty.
+//
+// So the receiving side is `this`, always. We want the personal wallet to
+// receive, therefore the call is personalPublic.getPaymentAddress(storePrivate).
+// Calling it the other way round — storePrivate.getPaymentAddress(personalPublic)
+// — returns an address on the STORE's chain, which the store can spend and the
+// operator's wallet will never see. It verifies, it is a valid BIP47 address,
+// and it is the wrong one. selftest.mjs asserts both directions explicitly so
+// the distinction cannot be lost to a refactor.
+// =============================================================================
+import { BIP47Factory } from "@dojo-tools/bip47";
+import * as utils from "@dojo-tools/bip47/utils";
+import ecc from "@bitcoinerlab/secp256k1";
+import type { PaymentCodePrivate, PaymentCodePublic } from "@dojo-tools/bip47";
+
+/** The address encodings BIP47 counterparties may use for a payment chain. */
+export type AddressType = "p2pkh" | "p2sh" | "p2wpkh";
+
+/**
+ * The default encoding, and deliberately the legacy one.
+ *
+ * p2pkh is what the BIP47 test vectors specify and what every wallet
+ * implementing v1 payment codes scans for. p2wpkh derives correctly here and
+ * costs the customer less in fees, but a chain the operator's wallet does not
+ * scan is a payment nobody sees, and that failure is silent and unrecoverable
+ * by us. So the safe form is the default, the type is configurable for an
+ * operator who knows their wallet handles it, and the installer settles the
+ * question empirically by deriving address 0 and asking the operator to confirm
+ * their own wallet displays it.
+ */
+export const DEFAULT_ADDRESS_TYPE: AddressType = "p2pkh";
+
+const bip47 = BIP47Factory(ecc);
+
+/** Load the store's own identity from its BIP39 seed. Holds private keys. */
+export function storeIdentity(seed: Uint8Array, { segwit = false, network = "bitcoin" } = {}): PaymentCodePrivate {
+  return bip47.fromSeed(seed, segwit, utils.networks[network]);
+}
+
+/** Parse a counterparty's payment code. Public material only. */
+export function publicCode(paymentCode: string, network: string = "bitcoin"): PaymentCodePublic {
+  return bip47.fromBase58(paymentCode, utils.networks[network]);
+}
+
+/**
+ * The invoice address at `index`, payable by anyone and spendable ONLY by the
+ * wallet behind `personalPaymentCode`.
+ *
+ * `store` must be the store's PRIVATE identity: the ECDH needs one private key,
+ * and it is deliberately the store's, because the alternative is putting the
+ * operator's spending key on a server. A caller passing a public-only store
+ * identity gets a throw from the library rather than a wrong address.
+ */
+export function addressFor(
+  store: PaymentCodePrivate,
+  personalPaymentCode: string,
+  index: number,
+  type: AddressType = DEFAULT_ADDRESS_TYPE,
+  network: string = "bitcoin",
+): string {
+  if (!Number.isInteger(index) || index < 0) {
+    throw new Error(`refusing to derive at index ${index}: must be a non-negative integer`);
+  }
+  // `this` is the personal code, so the address lands on the personal wallet's
+  // chain. See the header; this argument order is the whole point of the file.
+  return publicCode(personalPaymentCode, network).getPaymentAddress(store, index, type);
+}
+
+/**
+ * The private key for an address this store derived, given the PERSONAL wallet's
+ * private identity. The store never calls this and must never be able to: it is
+ * here so the self-test can prove that a derived address is actually spendable
+ * by the operator, which is the property the whole design promises and the one
+ * thing a vector comparison alone does not establish.
+ */
+export function spendingKeyFor(
+  personal: PaymentCodePrivate,
+  storePaymentCode: string,
+  index: number,
+  network: string = "bitcoin",
+): Uint8Array {
+  return personal.derivePaymentPrivateKey(publicCode(storePaymentCode, network), index);
+}
+
+/** The address a public key encodes to, for checking a derivation end to end. */
+export function addressOfPubkey(pubkey: Uint8Array, type: AddressType, network: string = "bitcoin"): string {
+  const net = utils.networks[network];
+  switch (type) {
+    case "p2pkh": return utils.getP2pkhAddress(pubkey, net);
+    case "p2sh": return utils.getP2shAddress(pubkey, net);
+    case "p2wpkh": return utils.getP2wpkhAddress(pubkey, net);
+    default: throw new Error(`unknown address type: ${type}`);
+  }
+}
+
+/** The compressed public key a private key corresponds to. */
+export function pubkeyOf(priv: Uint8Array): Uint8Array {
+  const pub = ecc.pointFromScalar(priv, true);
+  if (!pub) throw new Error("could not derive a public key from that private key");
+  return pub;
+}

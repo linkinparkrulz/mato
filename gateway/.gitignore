@@ -1,0 +1,7 @@
+node_modules/
+
+# The store's BIP39 seed and its derivation state. The seed is the store's
+# identity; committing it would let anyone enumerate every invoice address this
+# store will ever issue. index-state.json is instance-owned and must survive
+# deploys, so it is never in the tree either.
+data/
