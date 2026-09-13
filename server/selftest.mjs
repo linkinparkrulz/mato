@@ -2020,6 +2020,94 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
      "crypto.ts's canonicalPairing produces the text this suite signs");
 }
 
+// ---------------------------------------------------------------------------
+// Storefront chokepoints.
+//
+// The store is the one door every write passes through, so the invariants that
+// must hold for money are enforced there rather than at the endpoints that
+// happen to exist today. These assert the door is shut, not that today's
+// callers remember to knock.
+// ---------------------------------------------------------------------------
+{
+  const { store: shop, RATE_MAX_AGE_MS } = await import("./store.ts");
+
+  const refuses = async (fn, match, label) => {
+    let threw = null;
+    try { await fn(); } catch (e) { threw = e; }
+    ok(threw && match.test(threw.message), `${label}${threw ? ` (said: ${threw.message.slice(0, 70)}…)` : " — it was ACCEPTED"}`);
+  };
+
+  // --- products ---
+  await refuses(() => shop.putProduct({ id: "p1", name: "x", description: "", price_usd_cents: 9.99, inventory: 1, status: "listed" }),
+    /whole number of cents/, "a fractional price is refused: money is not a binary fraction");
+  await refuses(() => shop.putProduct({ id: "p1", name: "x", description: "", price_usd_cents: -100, inventory: 1, status: "listed" }),
+    /non-negative/, "a negative price is refused");
+  await refuses(() => shop.putProduct({ id: "p1", name: "x", description: "", price_usd_cents: 100, inventory: -1, status: "listed" }),
+    /inventory must be null/, "negative inventory is refused: it would sell stock that does not exist");
+
+  const good = await shop.putProduct({ id: "p1", name: "Widget", description: "# hi", price_usd_cents: 1999, inventory: null, status: "listed" });
+  ok(good.id === "p1" && (await shop.getProduct("p1"))?.price_usd_cents === 1999,
+     "a well-formed product with unlimited inventory stores and reads back");
+
+  // --- invoices ---
+  const signedAddr = /** @type {import("../types.js").SignedAddress} */ ({
+    v: 1, address: "141fi7TY3h936vRUKh1qfUZr8rSBuYbVBK", index: 0, type: "p2pkh",
+    network: "bitcoin", paymentCode: "PM8TJTLJbPRGxSbc8EJi42Wrr6QbNSaSSVJ5Y3E4pbCYiTHUskHg13935Ubb7q8tx9GVbh2UuRnBc3WSyJHhUrw8KhprKnn9eDznYGieTzFcwQRya4GA",
+    signed: "H0000000000000000000000000000000000000000000000000000000000000000000000000000000000000=",
+  });
+  const now = new Date();
+  const baseInvoice = /** @type {import("../types.js").InvoiceRecord} */ ({
+    id: "inv1", product_id: "p1", quantity: 1, status: "awaiting_payment",
+    address_record: signedAddr, address: signedAddr.address, address_index: 0,
+    price_usd_cents: 1999, rate_usd: 60000, rate_at: now.toISOString(),
+    amount_sats: 33316, expires_at: new Date(+now + 9e5).toISOString(),
+    created_at: now.toISOString(),
+  });
+
+  ok((await shop.putInvoice({ ...baseInvoice })).id === "inv1",
+     "a well-formed invoice stores");
+
+  // The signature is what lets a customer check where their money is going
+  // without trusting the page it arrived on. An invoice without one asks them
+  // to take the server's word for it.
+  await refuses(() => shop.putInvoice({ ...baseInvoice, id: "i2", address_record: null }),
+    /signed address record/, "an invoice with no signed address record is refused");
+  await refuses(() => shop.putInvoice({ ...baseInvoice, id: "i3", address_record: { ...signedAddr, signed: "" } }),
+    /signed address record/, "an invoice whose signature is blank is refused");
+
+  // A substituted address that the signature does not cover is the exact attack
+  // the record exists to stop, so the two must be pinned to each other.
+  await refuses(() => shop.putInvoice({ ...baseInvoice, id: "i4", address: "1AttackerAddressHere" }),
+    /does not match the signed record/, "an invoice whose address differs from its signed record is refused");
+
+  // A stale rate is a mispriced sale, and mispricing quietly is the failure a
+  // store must not have.
+  await refuses(() => shop.putInvoice({
+      ...baseInvoice, id: "i5",
+      rate_at: new Date(+now - RATE_MAX_AGE_MS - 60000).toISOString(),
+    }), /stale rate is a mispriced sale/, "an invoice priced from a stale rate is refused");
+
+  await refuses(() => shop.putInvoice({ ...baseInvoice, id: "i6", amount_sats: 0 }),
+    /positive whole number of satoshis/, "a zero-amount invoice is refused");
+  await refuses(() => shop.putInvoice({ ...baseInvoice, id: "i7", amount_sats: 1234.5 }),
+    /positive whole number of satoshis/, "a fractional satoshi amount is refused");
+  await refuses(() => shop.putInvoice({ ...baseInvoice, id: "i8", rate_usd: 0 }),
+    /rate_usd must be positive|rate_usd must be a positive/, "a zero exchange rate is refused");
+
+  // The freshness rule is a property of the record, not of the clock: an
+  // invoice written correctly must stay writable when its status changes hours
+  // later. If this were checked against now, a fulfilment would fail here.
+  const old = new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString();
+  ok((await shop.putInvoice({
+       ...baseInvoice, id: "i9", status: "fulfilled",
+       created_at: old, rate_at: old,
+     })).id === "i9",
+     "an old invoice still writes when its rate was fresh at creation");
+
+  ok((await shop.invoiceByAddress(signedAddr.address))?.id !== undefined,
+     "an invoice is findable by its address, which is how the watcher credits a payment");
+}
+
 await fsp.rm(process.env.PUBLIC_DATA_DIR, { recursive: true, force: true });
 
 console.log(`\nall ${passed} checks passed`);

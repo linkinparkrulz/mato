@@ -5,7 +5,7 @@ import { readFile, writeFile, rename, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
-import type { StoreRecord, DomainClaim } from "../types.js";
+import type { StoreRecord, DomainClaim, ProductRecord, InvoiceRecord } from "../types.js";
 
 /** A short-lived, single-use Auth47 nonce. */
 export interface Nonce { expires: number; [k: string]: unknown }
@@ -17,13 +17,26 @@ interface StoreShape {
   sessions: Record<string, Session>;
   nonces: Record<string, Nonce>;
   domains: Record<string, DomainClaim>;
+  products: Record<string, ProductRecord>;
+  invoices: Record<string, InvoiceRecord>;
 }
+
+/**
+ * How far apart an invoice's locked rate and its creation may be.
+ *
+ * Checked against created_at rather than against now, deliberately. "The rate
+ * was fresh when this invoice was written" is a property of the record that
+ * stays true forever and can be re-checked at any time; "the rate is fresh now"
+ * would be true at creation and false an hour later, so enforcing it on every
+ * write would make an ordinary status update fail on a perfectly good invoice.
+ */
+export const RATE_MAX_AGE_MS = +(process.env.RATE_MAX_AGE_MS || 15 * 60 * 1000);
 
 const DIR = process.env.SERVER_DATA_DIR
   || path.resolve(path.dirname(fileURLToPath(import.meta.url)), "data");
 const FILE = path.join(DIR, "store.json");
 
-const EMPTY: StoreShape = { submissions: {}, sessions: {}, nonces: {}, domains: {} };
+const EMPTY: StoreShape = { submissions: {}, sessions: {}, nonces: {}, domains: {}, products: {}, invoices: {} };
 let cache: StoreShape | null = null;
 
 // Whether a record carries a signed pairing block at all. A shape check, not a
@@ -195,6 +208,118 @@ export const store = {
   async deleteSubmission(id: string) {
     const s = await load();
     if (s.submissions[id]) { delete s.submissions[id]; await persist(); }
+  },
+
+  // --- products --------------------------------------------------------------
+  async listProducts(): Promise<ProductRecord[]> { return Object.values((await load()).products || {}); },
+  async getProduct(id: string): Promise<ProductRecord | null> { return ((await load()).products || {})[id] || null; },
+
+  /**
+   * The one door every product write passes through.
+   *
+   * The guards are about what a catalogue may not contain rather than about
+   * taste: a price that is not a whole number of cents is money represented as
+   * a binary fraction, and it will undercharge or overcharge by a cent
+   * eventually; negative inventory sells stock that does not exist. Both are
+   * cheap to prevent here and expensive to discover from an invoice.
+   */
+  async putProduct(rec: ProductRecord): Promise<ProductRecord> {
+    if (!rec?.id || typeof rec.id !== "string") {
+      throw new Error("refusing to store a product with no id");
+    }
+    if (!Number.isInteger(rec.price_usd_cents) || rec.price_usd_cents < 0) {
+      throw new Error(`refusing to store ${rec.id}: price_usd_cents must be a non-negative whole number of cents`);
+    }
+    if (rec.inventory !== null && (!Number.isInteger(rec.inventory) || rec.inventory < 0)) {
+      throw new Error(`refusing to store ${rec.id}: inventory must be null (unlimited) or a non-negative integer`);
+    }
+    const s = await load();
+    s.products = s.products || {};
+    s.products[rec.id] = rec;
+    await persist();
+    return rec;
+  },
+
+  async deleteProduct(id: string) {
+    const s = await load();
+    if (s.products?.[id]) { delete s.products[id]; await persist(); }
+  },
+
+  // --- invoices ---------------------------------------------------------------
+  async listInvoices(): Promise<InvoiceRecord[]> { return Object.values((await load()).invoices || {}); },
+  async getInvoice(id: string): Promise<InvoiceRecord | null> { return ((await load()).invoices || {})[id] || null; },
+
+  /** The invoice an address belongs to, for the payment watcher. */
+  async invoiceByAddress(address: string): Promise<InvoiceRecord | null> {
+    if (!address) return null;
+    return Object.values((await load()).invoices || {}).find((i) => i.address === address) || null;
+  },
+
+  async invoicesFor(paymentCode: string): Promise<InvoiceRecord[]> {
+    if (!paymentCode) return [];
+    return Object.values((await load()).invoices || {}).filter((i) => i.paymentCode === paymentCode);
+  },
+
+  /**
+   * The one door every invoice write passes through, and the place two
+   * invariants become structural rather than conventional.
+   *
+   * FIRST: an invoice must carry a signed address record. The signature is what
+   * lets a customer check that the address they are about to pay belongs to
+   * this store, without trusting the page it arrived on. An invoice without one
+   * asks them to take the server's word for where their money goes, which is
+   * the one thing this design exists not to require. Verifying the signature
+   * needs secp256k1, which this module deliberately does not import — see
+   * hasSignedBlock above for the same reasoning — so the cryptographic check
+   * belongs to address-source.ts, which does it on arrival from the gateway.
+   * What must be impossible HERE is a record with no attestation at all,
+   * however it was assembled: by an admin action, a migration, or an endpoint
+   * nobody has written yet.
+   *
+   * SECOND: the locked rate must be close to the moment of creation. Compared
+   * against created_at rather than against now, so it is a permanent property
+   * of the record rather than one that decays; see RATE_MAX_AGE_MS. An invoice
+   * priced from a stale rate is a mispriced sale, and mispricing quietly is the
+   * failure a store must not have.
+   */
+  async putInvoice(rec: InvoiceRecord): Promise<InvoiceRecord> {
+    if (!rec?.id || typeof rec.id !== "string") {
+      throw new Error("refusing to store an invoice with no id");
+    }
+    const signed = rec.address_record;
+    if (!signed || typeof signed.signed !== "string" || !signed.signed || !signed.address) {
+      throw new Error(`refusing to store invoice ${rec.id}: an invoice must carry a signed address record, ` +
+        `so the customer can check where their money is going without trusting this server.`);
+    }
+    if (rec.address !== signed.address) {
+      throw new Error(`refusing to store invoice ${rec.id}: the invoice address does not match the signed record`);
+    }
+    if (!Number.isInteger(rec.amount_sats) || rec.amount_sats <= 0) {
+      throw new Error(`refusing to store invoice ${rec.id}: amount_sats must be a positive whole number of satoshis`);
+    }
+    if (!(rec.rate_usd > 0)) {
+      throw new Error(`refusing to store invoice ${rec.id}: rate_usd must be a positive number`);
+    }
+    const created = Date.parse(rec.created_at || "");
+    const rateAt = Date.parse(rec.rate_at || "");
+    if (!Number.isFinite(created) || !Number.isFinite(rateAt)) {
+      throw new Error(`refusing to store invoice ${rec.id}: created_at and rate_at must both be timestamps`);
+    }
+    if (Math.abs(created - rateAt) > RATE_MAX_AGE_MS) {
+      throw new Error(`refusing to store invoice ${rec.id}: it was priced from a rate ` +
+        `${Math.round(Math.abs(created - rateAt) / 1000)}s away from its creation, beyond the ` +
+        `${Math.round(RATE_MAX_AGE_MS / 1000)}s limit. A stale rate is a mispriced sale.`);
+    }
+    const s = await load();
+    s.invoices = s.invoices || {};
+    s.invoices[rec.id] = rec;
+    await persist();
+    return rec;
+  },
+
+  async deleteInvoice(id: string) {
+    const s = await load();
+    if (s.invoices?.[id]) { delete s.invoices[id]; await persist(); }
   },
 
   // --- verified operator domains (keyed by payment code) ---------------------

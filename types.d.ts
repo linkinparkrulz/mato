@@ -146,3 +146,87 @@ declare global {
   };
   const markdown: { render(src: string): string };
 }
+
+// =============================================================================
+// Storefront shapes.
+//
+// These live alongside the directory shapes above while the fork is in
+// progress; the node types go when the front end and the request layer are
+// reworked. Nothing here is compiled or shipped.
+// =============================================================================
+
+/** An address the gateway derived and signed. Mirrors gateway/identity.ts. */
+export interface SignedAddress {
+  v: 1;
+  address: string;
+  index: number;
+  type: "p2pkh" | "p2sh" | "p2wpkh";
+  network: string;
+  /** The STORE's payment code: what the signature is checked against. */
+  paymentCode: string;
+  signed: string;
+}
+
+/** A product as held in the store. */
+export interface ProductRecord {
+  id: string;
+  name: string;
+  /** Markdown, rendered by assets/js/markdown.js. */
+  description: string;
+  /**
+   * Integer cents, never a float. A price is money and money is not a binary
+   * fraction: 0.1 + 0.2 is the classic way to undercharge by a cent forever.
+   */
+  price_usd_cents: number;
+  /** Units remaining. null means unlimited, which a digital good often is. */
+  inventory: number | null;
+  image_path?: string | null;
+  /**
+   * What the buyer receives once payment confirms — a path, a URL, or a secret.
+   * NEVER published: the catalogue allowlist is what guarantees that
+   * structurally rather than by everyone remembering to strip it.
+   */
+  digital_payload_ref?: string | null;
+  status: "draft" | "listed" | "hidden";
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** The lifecycle of an invoice. */
+export type InvoiceStatus =
+  | "awaiting_payment"
+  | "seen"
+  | "confirmed"
+  | "fulfilled"
+  | "expired"
+  | "underpaid";
+
+/** One order. The id is the customer's claim on it when they have no PayNym. */
+export interface InvoiceRecord {
+  id: string;
+  product_id: string;
+  quantity: number;
+  status: InvoiceStatus;
+  /** The full signed record, served to the customer so they can check it. */
+  address_record: SignedAddress;
+  /** Denormalised from address_record for lookup by the payment watcher. */
+  address: string;
+  address_index: number;
+  /** Price at creation, in cents. Frozen: a later price change is not this order. */
+  price_usd_cents: number;
+  /** USD per BTC, locked at creation. */
+  rate_usd: number;
+  /** When that rate was read. Must be close to created_at; see the chokepoint. */
+  rate_at: string;
+  amount_sats: number;
+  expires_at: string;
+  /** The customer's payment code when they signed in; null for guest checkout. */
+  paymentCode?: string | null;
+  paid_sats?: number;
+  txid?: string | null;
+  seen_at?: string | null;
+  confirmed_at?: string | null;
+  fulfilled_at?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
