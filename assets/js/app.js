@@ -1,4 +1,4 @@
-// The Dojo Bay — directory UI. Loads data/*.json and content/*.md at runtime.
+// mise — directory UI. Loads data/*.json and content/*.md at runtime.
 // Requires: assets/js/qrcode.js (global `qrcode`) and assets/js/markdown.js (global `markdown`).
 (function(){
   "use strict";
@@ -44,8 +44,8 @@ async function loadJSON(url){
      ONION_URL : this site's own .onion address. Leave "" to hide the
                  header pill (e.g. while testing, or when the site is
                  served onion-only and the pill would be redundant). */
-  const REPO_URL  = "https://github.com/Dojobay/dojobay";
-  const ONION_URL = "http://dojobayeryasshgghz537de5ckgd5hhi4z5sdeil3roeh65fwhdnu2yd.onion/";
+  const REPO_URL  = "https://github.com/linkinparkrulz/mise";
+  const ONION_URL = "";
   // PayNym profile links point at the paynym.rs onion, so a visitor stays on Tor.
   const PAYNYM_WEB = "http://paynym25chftmsywv4v2r67agbrr62lcxagsf4tymbzpeeucucy2ivad.onion";
   const SRC_ICON = `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="5" r="2.2"/><circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="9" r="2.2"/><path d="M6 7.2v9.6M18 11.2c0 3.2-2.6 4.3-5.6 4.3H10"/></svg>`;
@@ -71,7 +71,7 @@ async function loadJSON(url){
   </svg>`;
 
   const MODAL_META = {
-    about:      {title:"About The Dojo Bay",         file:"content/about.md"},
+    about:      {title:"About mise",         file:"content/about.md"},
     faq:        {title:"Frequently asked questions", file:"content/faq.md"},
   };
   const modalCache = {};
@@ -621,8 +621,8 @@ async function loadJSON(url){
           ${menuOpen?'<path d="M6 6 L18 18 M18 6 L6 18"/>':'<path d="M4 7h16 M4 12h16 M4 17h16"/>'}
         </svg>
       </button>
-      <a class="brand" href="./" aria-label="The Dojo Bay">${LOGO}
-        <span><div class="name disp">THE DOJO BAY</div><div class="sub mono">public dojo directory</div></span></a>
+      <a class="brand" href="./" aria-label="mise">${LOGO}
+        <span><div class="name disp">MISE</div><div class="sub mono">public dojo directory</div></span></a>
       <nav class="${menuOpen?"open":""}">
         <button class="lnk" data-modal="about">About</button>
         <button class="lnk" data-modal="faq">FAQ</button>
@@ -659,14 +659,14 @@ async function loadJSON(url){
       ${list.length
         ? `<div class="grid${FRESH.stale?" stale":""}">${list.map(card).join("")}</div>`
         : emptyState()}
-      <p class="note">The Dojo Bay is a federation of independent operators across different jurisdictions, and every node is reachable over Tor. Nodes go up and down without notice, and only the operator can restart one. Pairing exposes your XPUBs to that node, so do your own due diligence, or <a href="https://dojo-osp.org/install/requirements" target="_blank" rel="noopener">run your own Dojo</a>.</p>
+      <p class="note">mise is a federation of independent operators across different jurisdictions, and every node is reachable over Tor. Nodes go up and down without notice, and only the operator can restart one. Pairing exposes your XPUBs to that node, so do your own due diligence, or <a href="https://dojo-osp.org/install/requirements" target="_blank" rel="noopener">run your own Dojo</a>.</p>
     </main>
 
     <footer><div class="wrap">
       ${OPERATOR&&OPERATOR.paymentCode?`<img class="op-avatar" alt="" title="Directory operator's PayNym" src="data/avatars/${encodeURIComponent(OPERATOR.paymentCode)}.png" onerror="this.remove()">`:""}
       <button class="lnk verify-link" data-act="verify" title="Verify this directory's onion address is signed by its operator">Verify</button>
       <span class="foot-spacer"></span>
-      <a class="gh" href="data/dojobay-src.zip" download="dojobay-src.zip" aria-label="Download this instance's source code (zip)" title="Download this instance's source code (zip)">${SRC_ICON}</a>
+      <a class="gh" href="data/mise-src.zip" download="mise-src.zip" aria-label="Download this instance's source code (zip)" title="Download this instance's source code (zip)">${SRC_ICON}</a>
       <a class="gh" href="${REPO_URL}" target="_blank" rel="noopener" aria-label="Source code on GitHub" title="Source code on GitHub">${GH_LOGO}</a>
       <span class="ver">${VERSION?`<a href="${REPO_URL}/commit/${esc(VERSION.commit)}" target="_blank" rel="noopener" title="${esc(VERSION.built||"")}">build ${esc(VERSION.commit)}</a>`:""}</span>
     </div></footer>
@@ -970,10 +970,10 @@ async function loadJSON(url){
       return `<div class="dbox">
         <p>Two steps for <b>${esc(DOMAIN_PREP.domain)}</b>${DOMAIN_PREP.punycode?' <span class="dnote">(shown in punycode)</span>':""}:</p>
         <p class="dnote">1. Publish this TXT record on your domain:</p>
-        <div class="ep"><span class="k">Host</span><span class="u mono">${esc(DOMAIN_PREP.txt_host||"_dojobay")}</span><button class="copybtn" data-act="copyurl" data-v="${esc(DOMAIN_PREP.txt_host||"_dojobay")}">copy</button></div>
+        <div class="ep"><span class="k">Host</span><span class="u mono">${esc(DOMAIN_PREP.txt_host||"_mise")}</span><button class="copybtn" data-act="copyurl" data-v="${esc(DOMAIN_PREP.txt_host||"_mise")}">copy</button></div>
         <div class="ep"><span class="k">Value</span><span class="u mono">${esc(DOMAIN_PREP.txt_value)}</span><button class="copybtn" data-act="copyurl" data-v="${esc(DOMAIN_PREP.txt_value)}">copy</button></div>
         <p class="dnote">Most control panels (Namecheap, Cloudflare, Route 53) treat Host as relative to
-          your domain, so enter <b>${esc(DOMAIN_PREP.txt_host||"_dojobay")}</b> exactly. Entering the full
+          your domain, so enter <b>${esc(DOMAIN_PREP.txt_host||"_mise")}</b> exactly. Entering the full
           <span class="mono">${esc(DOMAIN_PREP.txt_name)}</span> there creates
           <span class="mono">${esc(DOMAIN_PREP.txt_name)}.${esc(DOMAIN_PREP.domain)}</span> instead, which
           will not be found. A few panels do want the full name; use it only if yours asks for an FQDN.
@@ -1257,8 +1257,8 @@ async function loadJSON(url){
   function adminShell(inner){
     document.getElementById("root").innerHTML = `
     <header class="no-menu"><div class="wrap">
-      <a class="brand" href="./" aria-label="The Dojo Bay">${LOGO}
-        <span><div class="name disp">THE DOJO BAY</div><div class="sub mono">operator console</div></span></a>
+      <a class="brand" href="./" aria-label="mise">${LOGO}
+        <span><div class="name disp">MISE</div><div class="sub mono">operator console</div></span></a>
       <nav><a class="lnk" href="./">\u2190 Directory</a></nav>
     </div></header>
     <main class="wrap"><h2 class="disp" style="margin:18px 0 14px">Moderation</h2>${inner}</main>`;
@@ -1376,7 +1376,7 @@ async function loadJSON(url){
       + '<button class="abtn" data-adm="update-peer">Update from a peer .onion…</button> '
       + '<button class="abtn" data-adm="update-recheck"' + (ADMIN_UPDATES_LOADING ? ' disabled' : '') + '>'
       + (ADMIN_UPDATES_LOADING ? 'Checking GitHub…' : 'Check GitHub') + '</button></div>'
-      + '<p style="font-size:12px;color:var(--faint)">A peer update fetches from another Dojo Bay over Tor '
+      + '<p style="font-size:12px;color:var(--faint)">A peer update fetches from another mise over Tor '
       + 'and verifies that instance\u2019s operator signature, so it works whatever GitHub is doing.</p>';
     const behind = u.commits_behind>0
       ? '<b style="color:var(--warn,#e0a020)">'+u.commits_behind+' commit'+(u.commits_behind===1?"":"s")+' behind main</b>'
@@ -1497,7 +1497,7 @@ async function loadJSON(url){
       + (j.error? '<button class="abtn" data-adm="update-dismiss">Dismiss</button>':'')
       + '</div>';
   }
-  // Importing listings from another Dojo Bay.
+  // Importing listings from another mise.
   //
   // Two steps, always. The premise of importing from another directory is that
   // you do not trust it, so the operator sees the plan before anything is
@@ -1508,7 +1508,7 @@ async function loadJSON(url){
     const j = IMPORT_RUN;
     if(!j){
       return '<div style="margin:14px 0 4px">'
-        + '<button class="abtn" data-adm="import-plan">Import Dojos from another Dojo Bay\u2026</button>'
+        + '<button class="abtn" data-adm="import-plan">Import Dojos from another mise\u2026</button>'
         + '<p style="font-size:12px;color:var(--faint);margin:6px 0 0">'
         + 'Fetches another instance\u2019s published list over Tor and shows what it would add. '
         + 'Nothing is written until you say so, every listing\u2019s own signature is checked here, '
@@ -1632,7 +1632,7 @@ async function loadJSON(url){
       }
       if(confirm("Update this instance from GitHub over Tor?\n\nSELF-UPDATE IS EXPERIMENTAL. The service will restart; if it does not come back you will need shell access to the box. A full copy of the current code is kept under data/backups/.")) startUpdate("github"); return; }
     if(act==="import-plan"){
-      const onion=prompt("The .onion of the Dojo Bay to import from:"); if(!onion) return;
+      const onion=prompt("The .onion of the mise to import from:"); if(!onion) return;
       const code=prompt("That instance operator's BIP47 payment code (verifies whose list this is):")||"";
       startImport(String(onion).replace(/^https?:\/\//,"").replace(/\/.*$/,""), code, false);
       return;
@@ -1744,7 +1744,7 @@ async function loadJSON(url){
   });
 
   (async function(){
-    if(IS_ADMIN_PAGE){ document.title="Admin \u2014 The Dojo Bay"; await refreshMe(); renderAdminPanel(); return; }
+    if(IS_ADMIN_PAGE){ document.title="Admin \u2014 mise"; await refreshMe(); renderAdminPanel(); return; }
     try{
       [DOJOS,HIST]=await Promise.all([loadJSON("data/dojos.json"),loadJSON("data/history.json"),loadHist90()]);
       render();

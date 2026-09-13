@@ -1,9 +1,9 @@
 {
-  "name": "dojobay-server",
+  "name": "mise-server",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Auth47-gated self-service submission API for The Dojo Bay.",
+  "description": "Auth47-gated self-service submission API for mise.",
   "engines": {
     "node": ">=24"
   },

@@ -1,6 +1,6 @@
 # Third-party notices
 
-The Dojo Bay's own code is MIT-licensed ([LICENSE](LICENSE)). It depends on
+mise's own code is MIT-licensed ([LICENSE](LICENSE)). It depends on
 software under other licences, two of which are copyleft, and this file records
 what they are and the rule that keeps the arrangement honest.
 

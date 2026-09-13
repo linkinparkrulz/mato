@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launcher for the Dojo Bay installer. Run it from a terminal, locally or over
+# Launcher for the mise installer. Run it from a terminal, locally or over
 # SSH: there is no double-click path, and the installer is a guided sequential
 # flow rather than a full-screen program.
 set -e

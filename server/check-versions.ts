@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// The Dojo Bay — report the Dojo version of every listing.
+// mise — report the Dojo version of every listing.
 //
 // READ-ONLY. Nothing is written and no network is touched: it reads what the
 // updater has already recorded.
@@ -18,7 +18,7 @@
 // report shows both, so a threshold can be chosen against the real spread.
 //
 // Usage, on the box:
-//     cd /var/www/dojobay/server
+//     cd /var/www/mise/server
 //     node check-versions.ts             # against the configured minimum
 //     node check-versions.ts 1.27.0      # against a threshold you are weighing
 // =============================================================================

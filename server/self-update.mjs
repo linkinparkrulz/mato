@@ -1,4 +1,4 @@
-// Self-update for a running Dojo Bay instance, driven from /admin. This is the
+// Self-update for a running mise instance, driven from /admin. This is the
 // most privileged path in the codebase -- it fetches code and restarts the
 // service from a web request -- so every step is deliberate and auditable:
 //
@@ -120,7 +120,7 @@ export function unzip(buf) {
 }
 
 function stripTopLevel(files) {
-  // Everything sits under one top-level folder: "dojobay/" from pack-source,
+  // Everything sits under one top-level folder: "mise/" from pack-source,
   // "<owner>-<repo>-<sha>/" from a GitHub zipball. Strip exactly one segment.
   //
   // DIRECTORY ENTRIES ARE SKIPPED, and that is the whole reason this function
@@ -175,7 +175,7 @@ function stripTopLevel(files) {
 // ---- source fetchers ---------------------------------------------------------
 const cfgFrom = (o) => ({ proxyHost: o.proxyHost || "127.0.0.1", proxyPort: o.proxyPort || 9050 });
 
-// A peer Dojo Bay serves its own code at /data/dojobay-src.zip. Verify who runs
+// A peer mise serves its own code at /data/mise-src.zip. Verify who runs
 // it before trusting a byte, exactly like bootstrap-import.
 /**
  * @param {{ onionHost: string, trustedCode: string, cfg?: any,
@@ -206,7 +206,7 @@ export async function fetchFromPeer({ onionHost, trustedCode, cfg, log = (/** @t
   // only: unzip() inflates each entry, so a peer could still send a small
   // archive that expands enormously, and bounding that is a separate job.
   const zres = fetchZip ? await fetchZip() : await httpOverTor(c, onionHost, 80,
-    `GET /data/dojobay-src.zip HTTP/1.0\r\nHost: ${onionHost}\r\nConnection: close\r\n\r\n`, 120000,
+    `GET /data/mise-src.zip HTTP/1.0\r\nHost: ${onionHost}\r\nConnection: close\r\n\r\n`, 120000,
     MAX_SOURCE_ZIP_BYTES);
   if (zres.status !== 200) throw new Error(`source zip: HTTP ${zres.status || "no response"}`);
   const bytes = zres.bodyBuf || Buffer.from(zres.body, "latin1");
@@ -224,7 +224,7 @@ export async function fetchFromPeer({ onionHost, trustedCode, cfg, log = (/** @t
 // The repo path is read from the same GITHUB_REPO used by the update check, so
 // moving the project to another organisation needs one environment variable
 // rather than an edit in two files that could drift apart.
-export async function fetchFromGitHub({ repo = process.env.GITHUB_REPO || "Dojobay/dojobay", ref = "main", cfg, log = (/** @type {string} */ _msg) => {}, transport } = {}) {
+export async function fetchFromGitHub({ repo = process.env.GITHUB_REPO || "linkinparkrulz/mise", ref = "main", cfg, log = (/** @type {string} */ _msg) => {}, transport } = {}) {
   const c = cfgFrom(cfg || {});
   transport = transport || githubGet;
   log("resolving latest commit…");
@@ -250,7 +250,7 @@ export async function applyUpdate({ bytes, sourceLabel, version, webRoot = ROOT,
   log("verifying archive…");
   const entries = stripTopLevel(unzip(bytes));
   if (!entries.some((e) => e.rel === "server/index.mjs") || !entries.some((e) => e.rel === "assets/js/app.js")) {
-    throw new Error("archive does not look like a Dojo Bay source tree");
+    throw new Error("archive does not look like a mise source tree");
   }
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const staging = path.join(webRoot, "data", "updates", stamp, "new");
@@ -277,7 +277,7 @@ export async function applyUpdate({ bytes, sourceLabel, version, webRoot = ROOT,
   //
   // It used to be a substring test against the absolute path, which was wrong
   // in a way that only showed up at certain install locations and then showed
-  // up catastrophically. An instance deployed under, say, /srv/data/dojobay has
+  // up catastrophically. An instance deployed under, say, /srv/data/mise has
   // "/data/" in every absolute path it owns, so every entry was excluded, cp
   // copied nothing, and because this loop swallows its errors the update
   // carried on and replaced the running code with no backup at all. The backup
@@ -309,7 +309,7 @@ export async function applyUpdate({ bytes, sourceLabel, version, webRoot = ROOT,
       backedUp++;
     } catch { /* absent from this tree; not every install has every entry */ }
   }
-  // server/ and assets/ exist in every Dojo Bay tree, so backing up fewer than
+  // server/ and assets/ exist in every mise tree, so backing up fewer than
   // two entries means something is wrong with the copy rather than with the
   // tree. Refuse to go on: swapping in new code without a backup is the one
   // failure this whole path exists to make survivable.

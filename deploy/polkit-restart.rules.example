@@ -1,6 +1,6 @@
-// The Dojo Bay — permission for the service account to restart its own service.
+// mise — permission for the service account to restart its own service.
 //
-// The last step of a self-update is `systemctl restart dojobay-server.service`,
+// The last step of a self-update is `systemctl restart mise-server.service`,
 // run as the service account. systemd asks polkit whether that account may
 // manage that unit, and the default answer for a system account with no session
 // is no. Without this rule an update installs the new code and then stops on its
@@ -8,8 +8,8 @@
 // exactly like an update that did nothing.
 //
 // Install (the installer offers to do this for you), substituting your web root:
-//   sudo cp /var/www/dojobay/deploy/polkit-restart.rules.example \
-//     /etc/polkit-1/rules.d/49-dojobay-restart.rules
+//   sudo cp /var/www/mise/deploy/polkit-restart.rules.example \
+//     /etc/polkit-1/rules.d/49-mise-restart.rules
 // The .example ending is part of this file's name, not a placeholder. The
 // destination name is what polkit reads.
 //
@@ -17,7 +17,7 @@
 // here weakens that default: a rule that returns no result falls through to it.
 //
 // The four conditions are all of them deliberate. One action, one unit, one
-// verb, one account: this grants the right to restart dojobay-server.service
+// verb, one account: this grants the right to restart mise-server.service
 // and nothing else, to the service account and nobody else. It does not permit
 // stop, start, enable, mask, or any other unit. An operator who wants to take
 // the service down still does it as a human with sudo.
@@ -28,9 +28,9 @@
 // `journalctl -u polkit` after editing this by hand.
 polkit.addRule(function (action, subject) {
   if (action.id == "org.freedesktop.systemd1.manage-units" &&
-      action.lookup("unit") == "dojobay-server.service" &&
+      action.lookup("unit") == "mise-server.service" &&
       action.lookup("verb") == "restart" &&
-      subject.user == "dojobay") {
+      subject.user == "mise") {
     return polkit.Result.YES;
   }
 });

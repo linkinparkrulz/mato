@@ -45,7 +45,7 @@ const DOJOS = {
       indexer_url: "tcp://" + "i".repeat(56) + ".onion:50001",
       operator_domain: "example.org",
       operator_domain_proof: { domain: "example.org", paymentCode: "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
-        txt_name: "_dojobay.example.org", txt_value: "dojobay-domain-v1 pm=PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
+        txt_name: "_mise.example.org", txt_value: "mise-domain-v1 pm=PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
         signed: "-----BEGIN BITCOIN SIGNED MESSAGE-----\nhttps://example.org/\n\nBIP47: PM8TJS2J\n-----BEGIN BITCOIN SIGNATURE-----\nAddress: 1ChvUUvht2hUQufHBXF8NgLhW8SwE2ecGV\n\n" + "H".repeat(87) + "=\n-----END BITCOIN SIGNATURE-----",
         verified_at: "2026-07-01T00:00:00Z" },
       payload: { pairing: { type: "dojo.api", version: "1.28.0", apikey: "fixturekey",
@@ -87,7 +87,7 @@ let meCalls = 0;
 let dojosCalls = 0;
 const PCODE_FULL = "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97";
 const dom = new JSDOM(`<!DOCTYPE html><html><body><div id="root"></div></body></html>`, {
-  url: "http://dojobay.onion/",
+  url: "http://mise.onion/",
   runScripts: "outside-only",
   pretendToBeVisual: true,
 });
@@ -103,7 +103,7 @@ window.markdown = { render: (t) => t };
 window.__updateStatusSeq = [];
 const OPERATOR_SIGNED = [
   "-----BEGIN BITCOIN SIGNED MESSAGE-----",
-  "http://dojobayeryasshgghz537de5ckgd5hhi4z5sdeil3roeh65fwhdnu2yd.onion/",
+  "http://miseaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaad.onion/",
   "",
   "BIP47:",
   "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
@@ -396,9 +396,9 @@ ok("verified domain badge on the card, absent when unverified");
   btn.dispatchEvent(new window.Event("click", { bubbles: true }));
   await new Promise((r) => setTimeout(r, 20));
   const body = doc.getElementById("ov-body").textContent;
-  assert.ok(/dig \+short TXT _dojobay\.example\.org/.test(body), "it shows the dig command");
+  assert.ok(/dig \+short TXT _mise\.example\.org/.test(body), "it shows the dig command");
   assert.ok(/cloudflare-dns\.com\/dns-query/.test(body), "and an HTTPS equivalent for readers without dig");
-  assert.ok(/dojobay-domain-v1 pm=PM8TJS2J/.test(body), "and the exact TXT value to expect");
+  assert.ok(/mise-domain-v1 pm=PM8TJS2J/.test(body), "and the exact TXT value to expect");
   assert.ok(/1ChvUUvht2hUQufHBXF8NgLhW8SwE2ecGV/.test(body), "and the signing address");
   assert.ok(/BEGIN BITCOIN SIGNED MESSAGE/.test(body), "and the signed block itself");
   assert.ok(/paymentcode\.io\/lab/.test(doc.getElementById("ov-body").innerHTML),
@@ -485,7 +485,7 @@ ok("verified domain badge on the card, absent when unverified");
 // healthy directory.
 {
   const staleDom = new JSDOM(`<!DOCTYPE html><html><body><div id="root"></div></body></html>`,
-    { url: "http://dojobay.onion/", runScripts: "outside-only", pretendToBeVisual: true });
+    { url: "http://mise.onion/", runScripts: "outside-only", pretendToBeVisual: true });
   const w = staleDom.window;
   Object.defineProperty(w.navigator, "clipboard", { value: { writeText: async () => {} } });
   const old = { ...DOJOS, generated_at: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString() };
@@ -576,8 +576,8 @@ ok("footer operator avatar beside Verify; Disclaimer menu item gone");
 
 
 // footer: the instance serves its own source as a zip
-const srcLink = doc.querySelector('footer a[download="dojobay-src.zip"]');
-assert.ok(srcLink && srcLink.getAttribute("href") === "data/dojobay-src.zip", "source zip download link in the footer");
+const srcLink = doc.querySelector('footer a[download="mise-src.zip"]');
+assert.ok(srcLink && srcLink.getAttribute("href") === "data/mise-src.zip", "source zip download link in the footer");
 ok("footer source-download icon links the instance's own code zip");
 
 
@@ -620,7 +620,7 @@ ok("footer source-download icon links the instance's own code zip");
 {
   const mountWith = async (dojos) => {
     const d = new JSDOM(`<!DOCTYPE html><html><body><div id="root"></div></body></html>`,
-      { url: "http://dojobay.onion/", runScripts: "outside-only", pretendToBeVisual: true });
+      { url: "http://mise.onion/", runScripts: "outside-only", pretendToBeVisual: true });
     const w = d.window;
     w.confirm = () => true; w.prompt = () => "";
     w.qrcode = () => ({ addData(){}, make(){}, getModuleCount(){ return 21; }, isDark(){ return false; } });
@@ -974,7 +974,7 @@ ok("footer source-download icon links the instance's own code zip");
   ok("a rate-limited exit is explained, and leaves the peer route open");
 }
 
-// Importing listings from another Dojo Bay, from the console.
+// Importing listings from another mise, from the console.
 //
 // The premise is that the other directory is not trusted, so the interface has
 // to make the plan the thing an operator reads and the write the thing they

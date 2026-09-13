@@ -4,7 +4,7 @@
 // One domain per operator, bound to their BIP47 payment code and proven in both
 // directions, so neither half alone is enough:
 //
-//   the domain asserts the code   a TXT record at _dojobay.<domain> naming the
+//   the domain asserts the code   a TXT record at _mise.<domain> naming the
 //                                 payment code; publishing it needs control of
 //                                 the domain
 //   the code asserts the domain   a wallet-signed statement naming the domain;
@@ -46,8 +46,8 @@ export interface ClaimVerification {
   answered?: number;
 }
 
-export const TXT_PREFIX = "_dojobay";
-export const CLAIM_VERSION = "dojobay-domain-v1";
+export const TXT_PREFIX = "_mise";
+export const CLAIM_VERSION = "mise-domain-v1";
 export const RECHECK_MS = +(process.env.DOMAIN_RECHECK_HOURS || 24) * 3600 * 1000;
 /** A claim awaiting its first successful lookup is retried far more often: the
  *  operator has just published a TXT record and is waiting for propagation. */
@@ -82,7 +82,7 @@ export function normaliseDomain(input: unknown): NormalisedDomain {
 export const txtName = (domain: string): string => `${TXT_PREFIX}.${domain}`;
 /** The Host/Name field in a DNS panel is relative to the zone, so most control
  *  panels want just this label. Handing over the fully-qualified name instead is
- *  the classic way to end up with _dojobay.example.com.example.com. */
+ *  the classic way to end up with _mise.example.com.example.com. */
 export const txtHost = (): string => TXT_PREFIX;
 export const txtValue = (paymentCode: string): string => `${CLAIM_VERSION} pm=${paymentCode}`;
 export const signingText = (domain: string, paymentCode: string): string => claimText(`https://${domain}`, paymentCode);

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launcher for the Dojo Bay uninstaller. Reverses the guided install: run it
+# Launcher for the mise uninstaller. Reverses the guided install: run it
 # with no arguments first, which only reports what it would remove.
 set -e
 cd "$(dirname "$0")"

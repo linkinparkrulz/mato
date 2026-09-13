@@ -1,4 +1,4 @@
-> **This repository is `mato`, a work in progress.**
+> **This repository is `mise`, a work in progress.**
 >
 > It is a fork of [The Dojo Bay](https://github.com/Dojobay/dojobay), an
 > onion-only directory of public Bitcoin Dojo nodes, and is being rebuilt into a
@@ -12,7 +12,7 @@
 > section by section. Nothing here is finished, audited, or safe to point at
 > real money yet.
 
-# The Dojo Bay
+# mise
 
 An onion-only directory of public Bitcoin **Dojo** nodes for
 [Samourai](https://web.archive.org/web/20240424023506/https://samouraiwallet.com/),
@@ -21,7 +21,7 @@ An onion-only directory of public Bitcoin **Dojo** nodes for
 The reference instance runs at:
 
 ```
-http://dojobayeryasshgghz537de5ckgd5hhi4z5sdeil3roeh65fwhdnu2yd.onion/
+http://miseaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaad.onion/
 ```
 
 Each listed node shows its PayNym and payment code, jurisdiction, hardware,
@@ -40,7 +40,7 @@ site's outbound probes and PayNym lookups travel over Tor.
 
 This repository is the complete, self-hostable software: anyone with a Debian
 or Ubuntu box, including the one already running their node, can operate
-their own Dojo Bay.
+their own mise.
 
 ## How it works
 
@@ -51,7 +51,7 @@ the presentation never touch.
 
 The node list is generated, not hand-edited. `data/seed.json` is the
 instance **anchor**: exactly one node, the instance operator's own Dojo,
-which is what guarantees a Dojo Bay is never empty and that whoever runs a
+which is what guarantees a mise is never empty and that whoever runs a
 directory also runs a node. Every other listing lives in a server-side store,
 created and managed by its operator over Auth47, and `server/build-public.mjs`
 merges the anchor with every approved submission into the public
@@ -77,7 +77,7 @@ sessions, operator submissions and edits, and the moderation console at
 operator sets in the service environment, using the same Auth47 sign-in, no
 separate credentials.
 
-## Run your own Dojo Bay
+## Run your own mise
 
 Requirements: Debian 12 or Ubuntu 24.04 (or similar), **Node.js 24 or
 newer**, plus your own Dojo and PayNym.
@@ -97,7 +97,7 @@ use or an out-of-memory kill. Run it on your own box, ideally just after a
 deploy, and size from that rather than from this paragraph.
 
 ```
-cd /var/www/dojobay/server && sudo -u deploy node check-resources.ts
+cd /var/www/mise/server && sudo -u deploy node check-resources.ts
 ```
 
 One thing it will warn about as an instance ages: every self-update keeps a full
@@ -150,24 +150,24 @@ and the first build. It shows a review screen before writing anything and is
 safe to re-run.
 
 The manual steps below do the same by hand, and assume the site lives at
-`/var/www/dojobay`.
+`/var/www/mise`.
 
 1. **Clone and install the backend's dependencies.**
 
    ```
-   sudo git clone https://github.com/Dojobay/dojobay /var/www/dojobay
-   cd /var/www/dojobay/server && sudo npm ci --omit=dev
+   sudo git clone https://github.com/linkinparkrulz/mise /var/www/mise
+   cd /var/www/mise/server && sudo npm ci --omit=dev
    ```
 
 2. **Create the hidden service.** In `/etc/tor/torrc`:
 
    ```
-   HiddenServiceDir /var/lib/tor/dojobay/
+   HiddenServiceDir /var/lib/tor/mise/
    HiddenServicePort 80 127.0.0.1:8080
    ```
 
    Restart Tor and read your onion address from
-   `/var/lib/tor/dojobay/hostname`.
+   `/var/lib/tor/mise/hostname`.
 
 3. **Configure nginx** from `deploy/nginx-onion.conf.example`. It binds to
    `127.0.0.1:8080` (never a public interface), proxies `/api/` to the
@@ -176,14 +176,14 @@ The manual steps below do the same by hand, and assume the site lives at
    keys) lives inside the web root.
 
 4. **Install the systemd units** from `scripts/`:
-   `dojobay-server.service` (the Auth47 backend: set `BASE_URL` to your
+   `mise-server.service` (the Auth47 backend: set `BASE_URL` to your
    onion address, since Auth47 challenges embed it and wallets sign exactly
    that string, and set `ADMIN_PAYMENT_CODES` to your own payment code to
-   make yourself the moderator), and `dojobay-update.service` plus
-   `dojobay-update.timer` (the ten-minute prober). Enable the timer and the
+   make yourself the moderator), and `mise-update.service` plus
+   `mise-update.timer` (the ten-minute prober). Enable the timer and the
    service.
 
-5. **Seed your anchor and build the list.** Running a Dojo Bay requires
+5. **Seed your anchor and build the list.** Running a mise requires
    running a Dojo: put your own node, mainnet or testnet, into
    `data/seed.json` as its single entry, with your PayNym and BIP47 payment
    code (the same code you set in `ADMIN_PAYMENT_CODES`). Then generate the
@@ -231,7 +231,7 @@ sudo ./uninstall.sh --apply --purge-data --purge-onion  # …and the onion key
 By default it stops and disables the backend and the updater timer, removes the
 three systemd units and the nginx site, and takes its own block out of
 `/etc/tor/torrc`, surgically, so any other hidden service in that file survives,
-with the original kept alongside as `torrc.dojobay-bak`. It leaves the tor and
+with the original kept alongside as `torrc.mise-bak`. It leaves the tor and
 nginx **packages** installed, since they were probably there first and are
 probably serving something else.
 
@@ -301,7 +301,7 @@ disable the check by setting it empty.
 To see where every current listing stands before changing it:
 
 ```
-cd /var/www/dojobay/server
+cd /var/www/mise/server
 sudo -u deploy node check-versions.ts          # against the configured minimum
 sudo -u deploy node check-versions.ts 1.29.0   # against one you are weighing
 ```
@@ -350,8 +350,8 @@ pairing data only.
 Proof runs in both directions, so neither half is enough on its own. In
 **Manage my Dojo → Verified domain**, enter your domain and the panel shows you:
 
-1. A **TXT record** to publish, at `_dojobay.<your-domain>`, whose value is
-   `dojobay-domain-v1 pm=<your payment code>`. Publishing it requires control of
+1. A **TXT record** to publish, at `_mise.<your-domain>`, whose value is
+   `mise-domain-v1 pm=<your payment code>`. Publishing it requires control of
    the domain.
 2. The **exact text to sign**, which is `https://<your-domain>/`, a blank line,
    then `BIP47: <your payment code>`. Sign it under **PayNym → Sign message**,
@@ -369,7 +369,7 @@ domain that changes hands therefore stops being claimable by its previous owner.
 
 The proof travels. `data/dojos.json` publishes the TXT record and the signed
 statement alongside the badge, and the signed statement names only the domain and
-the payment code, never the instance that checked it. So another Dojo Bay
+the payment code, never the instance that checked it. So another mise
 bootstrapping from this one carries the claim across, but re-verifies the
 signature itself and re-checks the DNS with its own resolvers before showing a
 badge. A directory never inherits another's tick, which is what stops one
@@ -381,7 +381,7 @@ just as easily as a well-known one, and a maintainer can revoke any badge.
 
 ## Verifying a directory
 
-Any Dojo Bay instance can be verified against its operator: the **Verify**
+Any mise instance can be verified against its operator: the **Verify**
 link in the footer shows a Bitcoin-signed message binding the onion address
 to the operator's payment code. Check it with the
 [BIP47 Message Verifier](https://paymentcode.io/lab)
@@ -389,8 +389,8 @@ or with **Tools → Verify message** in the wallet.
 
 ## Upgrading an instance
 
-Every Dojo Bay serves its own source code: the branch icon in the footer
-downloads `data/dojobay-src.zip`, an archive of exactly the code that
+Every mise serves its own source code: the branch icon in the footer
+downloads `data/mise-src.zip`, an archive of exactly the code that
 instance is running (regenerated automatically after each deploy, and never
 containing instance data: no submission store, no API keys, no seed, no
 histories). That makes any instance an upgrade source for any other, with no
@@ -403,13 +403,13 @@ operator binding, submission store and histories are untouched:
 
 ```
 cd /tmp
-curl -s --socks5-hostname 127.0.0.1:9050   -o dojobay-src.zip http://<reference-onion>/data/dojobay-src.zip
-unzip -o dojobay-src.zip
-sudo systemctl stop dojobay-server
-sudo cp -a dojobay/. /var/www/dojobay/
-cd /var/www/dojobay/server && sudo npm ci --omit=dev
+curl -s --socks5-hostname 127.0.0.1:9050   -o mise-src.zip http://<reference-onion>/data/mise-src.zip
+unzip -o mise-src.zip
+sudo systemctl stop mise-server
+sudo cp -a mise/. /var/www/mise/
+cd /var/www/mise/server && sudo npm ci --omit=dev
 node ../server/build-public.mjs
-sudo systemctl start dojobay-server
+sudo systemctl start mise-server
 ```
 
 The footer's build hash and `data/version.json` tell you what you are
@@ -441,13 +441,13 @@ by hand, copy the rule yourself and check the account named inside matches the
 one your service runs as:
 
 ```
-sudo cp /var/www/dojobay/deploy/polkit-restart.rules.example \
-  /etc/polkit-1/rules.d/49-dojobay-restart.rules
-systemctl show dojobay-server.service -p User --value
-sudo grep subject.user /etc/polkit-1/rules.d/49-dojobay-restart.rules
+sudo cp /var/www/mise/deploy/polkit-restart.rules.example \
+  /etc/polkit-1/rules.d/49-mise-restart.rules
+systemctl show mise-server.service -p User --value
+sudo grep subject.user /etc/polkit-1/rules.d/49-mise-restart.rules
 ```
 
-Substitute your web root in the first path if it is not `/var/www/dojobay`. The
+Substitute your web root in the first path if it is not `/var/www/mise`. The
 `.example` ending is part of the filename the template ships under, not a
 placeholder; the destination name is what polkit reads. The last two commands
 must agree: the account systemd runs the service as, and the account named
@@ -467,10 +467,10 @@ never touched, and a backup under `data/backups/<timestamp>/` lets you roll
 back by hand if a build misbehaves. The manual `unzip` upgrade below remains
 available and does the same thing.
 
-### Importing listings from another Dojo Bay
+### Importing listings from another mise
 
 The same operation the installer offers at setup is available afterwards, from
-the admin console: **Import Dojos from another Dojo Bay**. Give it that
+the admin console: **Import Dojos from another mise**. Give it that
 instance's `.onion` and the payment code of its operator, and it fetches their
 published list over Tor.
 
@@ -508,13 +508,13 @@ the TXT record before a badge appears.
 
 Six scripts live in `server/` and are run on the instance itself, not in CI.
 Each of the three that writes anything defaults to a **dry run**, backs up what
-it touches, and refuses to run while `dojobay-server.service` is up, because
+it touches, and refuses to run while `mise-server.service` is up, because
 `store.ts` holds the store in memory as a single writer and would overwrite the
 edit. Run them as the service user, not as root: files left owned by root are
 files the deploy cannot manage.
 
 ```
-cd /var/www/dojobay/server
+cd /var/www/mise/server
 ```
 
 **`audit-signed.mjs`**, read-only. Re-checks every stored signed block with the
@@ -588,7 +588,7 @@ onion and admin code back out of the installed unit and renders the current
 template with them, so what you see is what this repository changed. Anything
 else you edited by hand shows as a difference, because it is one and only you
 can say whether it should survive: read the diff before applying. Applying keeps
-the previous copies under `/var/backups/dojobay/`, reloads systemd, restarts any
+the previous copies under `/var/backups/mise/`, reloads systemd, restarts any
 timer whose file changed, since a timer keeps its old schedule until it is
 restarted and nothing about the machine would look wrong meanwhile, and
 validates the nginx site with `nginx -t` before reloading nginx. It names any

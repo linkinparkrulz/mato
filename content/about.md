@@ -1,4 +1,4 @@
-The Dojo Bay exists to give access to people who don't have a Dojo of their own. We encourage everyone to run their own node rather than rely on third parties, and we collect nothing about the people who connect through this directory.
+mise exists to give access to people who don't have a Dojo of their own. We encourage everyone to run their own node rather than rely on third parties, and we collect nothing about the people who connect through this directory.
 
 This site is run by a Dojo operator, and one or more of the nodes listed here are ours. We think that is the right arrangement: whoever maintains a directory of public Dojos should be exposed to the same costs and the same risks as everyone in it. It also means we are not a neutral party, which is precisely why nothing here asks you to take our word for anything.
 

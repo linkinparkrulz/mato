@@ -17,7 +17,7 @@
 const major = Number(process.versions.node.split(".")[0]);
 if (Number.isNaN(major) || major < 24) {
   console.error(
-    `The Dojo Bay rebuild needs Node 24 or newer (found ${process.versions.node}).\n` +
+    `mise rebuild needs Node 24 or newer (found ${process.versions.node}).\n` +
     "It runs TypeScript directly, which relies on type stripping added in Node 24.\n" +
     "Upgrade Node, then re-run the rebuild.");
   process.exit(1);

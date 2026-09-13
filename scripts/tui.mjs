@@ -1,4 +1,4 @@
-// Minimal full-screen TUI toolkit for the Dojo Bay installer. Node builtins
+// Minimal full-screen TUI toolkit for the mise installer. Node builtins
 // only: raw-mode stdin, the alternate screen buffer, ANSI drawing. The
 // interactive shell is deliberately thin; everything with logic in it -- the
 // key decoder, the form state reducer, the frame renderer -- is a pure
@@ -124,7 +124,7 @@ export const HEADER = [];
 export function renderFrame({ width = 80, stepLabel = "", title = "", body = [], footer = "" }) {
   const lines = [];
   for (const l of HEADER) lines.push(R(l));
-  lines.push(R(" ") + BOLD("THE DOJO BAY") + R("  " + "0".repeat(Math.max(0, width - 16))));
+  lines.push(R(" ") + BOLD("MISE") + R("  " + "0".repeat(Math.max(0, width - 16))));
   lines.push(padTo(DIM(stepLabel), width - 1) );
   lines.push(R("── ") + BOLD(title) + " " + R("─".repeat(Math.max(2, width - 6 - plainLen(title)))));
   lines.push("");

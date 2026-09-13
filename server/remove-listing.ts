@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// The Dojo Bay — remove a listing and its reliability history.
+// mise — remove a listing and its reliability history.
 //
 // Deleting a record through the API leaves its history behind: unlisting stamps
 // it `retired` and keeps it for HISTORY_GRACE_DAYS so that a node relisted
@@ -9,11 +9,11 @@
 // now.
 //
 // Usage, on the box:
-//     cd /var/www/dojobay/server
+//     cd /var/www/mise/server
 //     node remove-listing.ts <record-id>              # dry run
-//     sudo systemctl stop dojobay-server.service
+//     sudo systemctl stop mise-server.service
 //     node remove-listing.ts --apply <record-id>
-//     sudo systemctl start dojobay-server.service
+//     sudo systemctl start mise-server.service
 //     node build-public.mjs
 //
 // As with the other write tools, --apply refuses to run while the service is
@@ -45,14 +45,14 @@ if (!IDS.length) {
 
 if (APPLY && !FORCE) {
   let active = "";
-  try { active = execFileSync("systemctl", ["is-active", "dojobay-server.service"], { encoding: "utf8" }).trim(); }
+  try { active = execFileSync("systemctl", ["is-active", "mise-server.service"], { encoding: "utf8" }).trim(); }
   catch (e: any) { active = (e.stdout || "").trim(); }
   if (active === "active") {
-    console.error("REFUSING: dojobay-server.service is running.\n" +
+    console.error("REFUSING: mise-server.service is running.\n" +
       "The store is held in memory by the server and would overwrite this edit.\n" +
-      "  sudo systemctl stop dojobay-server.service\n" +
+      "  sudo systemctl stop mise-server.service\n" +
       "  node remove-listing.ts --apply <record-id>\n" +
-      "  sudo systemctl start dojobay-server.service");
+      "  sudo systemctl start mise-server.service");
     process.exit(2);
   }
 }

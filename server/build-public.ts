@@ -304,8 +304,8 @@ export async function rebuild(): Promise<{ nodes: number; approved: number; msg:
     n.operator_domain_proof = domain && claim ? {
       domain,
       paymentCode: code,
-      txt_name: `_dojobay.${domain}`,
-      txt_value: `dojobay-domain-v1 pm=${code}`,
+      txt_name: `_mise.${domain}`,
+      txt_value: `mise-domain-v1 pm=${code}`,
       signed: claim.signed,
       verified_at: claim.verified_at,
     } : null;

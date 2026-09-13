@@ -1,4 +1,4 @@
-// The Dojo Bay — service worker.
+// mise — service worker.
 // Strategy:
 //   * app shell (html, css, js, fonts, icons, content) is precached and served
 //     cache-first, so the installed PWA opens instantly and works offline;
@@ -6,7 +6,7 @@
 //     network-first so a connected client always sees the latest snapshot,
 //     falling back to cache when offline.
 // Bump CACHE when you ship new assets to retire the old cache.
-const CACHE = "dojobay-v2";
+const CACHE = "mise-v2";
 
 const SHELL = [
   "./",

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// The Dojo Bay — diagnose signed-block mismatches.
+// mise — diagnose signed-block mismatches.
 //
 // READ-ONLY. For every record whose stored block does not pass the gate, this
 // answers the question the audit cannot: is the SIGNATURE bad, or is the stored
@@ -16,7 +16,7 @@
 //      are the same DATA in a different serialisation (key order, spacing) or
 //      genuinely different values.
 //
-// Run on the box:  cd /var/www/dojobay/server && node diagnose-signed.mjs
+// Run on the box:  cd /var/www/mise/server && node diagnose-signed.mjs
 // Add --all to include records that already pass.
 // =============================================================================
 import { store } from "./store.ts";

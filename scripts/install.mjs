@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The Dojo Bay guided installer.
+// mise guided installer.
 //
 //   sudo node scripts/install.mjs
 //
@@ -84,7 +84,7 @@ async function main() {
     });
   }
   const { webRoot } = await ui.form([
-    { key: "webRoot", label: "Web root", type: "text", value: "/var/www/dojobay",
+    { key: "webRoot", label: "Web root", type: "text", value: "/var/www/mise",
       hint: "where the site lives", validate: (v) => v.startsWith("/") || "must be an absolute path" },
   ]);
 
@@ -114,7 +114,7 @@ async function main() {
 
   // ---- 4. hidden service ---------------------------------------------------------
   await ui.step(4, TOTAL, "Hidden service");
-  const hsDir = "/var/lib/tor/dojobay";
+  const hsDir = "/var/lib/tor/mise";
   if (await ui.confirm("Import an existing .onion key (e.g. a vanity address)?", false)) {
     const { keyPath } = await ui.form([
       { key: "keyPath", label: "Path to hs_ed25519_secret_key (or its directory)", type: "text",
@@ -187,7 +187,7 @@ async function main() {
       // validating the second, was more ceremony than a flag is worth.
       hint: "e.g. Finland, Helsinki FI, Europe \u2014 a country gets you a flag" },
     { key: "hardware", label: "Hardware (optional)", type: "text", hint: "e.g. N100 16GB" },
-  ], { note: "Running a Dojo Bay requires running a Dojo. This node seeds your directory." });
+  ], { note: "Running a mise requires running a Dojo. This node seeds your directory." });
   let payload;
   // Two loops, because a bad payload and an old Dojo need different offers. A
   // payload that will not parse, or a node that does not answer, means pasting
@@ -316,7 +316,7 @@ async function main() {
   // ---- 7. bootstrap import -----------------------------------------------------------
   let timerUnarmed = false;
   let polkitUnverified = false;
-  await ui.step(7, TOTAL, "Bootstrap from a trusted Dojo Bay (optional)");
+  await ui.step(7, TOTAL, "Bootstrap from a trusted mise (optional)");
   let bootstrap = null;
   if (await ui.confirm("Import nodes + history from an existing instance you trust?", false)) {
     const b = await ui.form([
@@ -366,7 +366,7 @@ async function main() {
       "",
       ...polkitRule.split("\n").filter((l) => l && !l.startsWith("//")).map((l) => "  " + l),
       "",
-      `This permits restart of dojobay-server.service by ${SERVICE_USER}, with no`,
+      `This permits restart of mise-server.service by ${SERVICE_USER}, with no`,
       "password. It does not permit stop, start, enable, mask, or any other unit,",
       "and it does not weaken the distribution's own defaults.",
       "",
@@ -418,14 +418,14 @@ async function main() {
       log(`service account ${SERVICE_USER} already exists`);
     }
     const nginxTpl = await readFile(path.join(webRoot, "deploy/nginx-onion.conf.example"), "utf8");
-    await writeFile("/etc/nginx/sites-available/dojobay", renderNginx(nginxTpl, { webRoot }));
-    await run("ln", ["-sf", "/etc/nginx/sites-available/dojobay", "/etc/nginx/sites-enabled/dojobay"]);
-    const srvTpl = await readFile(path.join(webRoot, "scripts/dojobay-server.service"), "utf8");
-    await writeFile("/etc/systemd/system/dojobay-server.service",
+    await writeFile("/etc/nginx/sites-available/mise", renderNginx(nginxTpl, { webRoot }));
+    await run("ln", ["-sf", "/etc/nginx/sites-available/mise", "/etc/nginx/sites-enabled/mise"]);
+    const srvTpl = await readFile(path.join(webRoot, "scripts/mise-server.service"), "utf8");
+    await writeFile("/etc/systemd/system/mise-server.service",
       renderServerUnit(srvTpl, { webRoot, baseUrl: `http://${onionHost}`, adminCode: paymentCode }));
-    const updTpl = await readFile(path.join(webRoot, "scripts/dojobay-update.service"), "utf8");
-    await writeFile("/etc/systemd/system/dojobay-update.service", renderUpdateUnit(updTpl, { webRoot }));
-    await copyFile(path.join(webRoot, "scripts/dojobay-update.timer"), "/etc/systemd/system/dojobay-update.timer");
+    const updTpl = await readFile(path.join(webRoot, "scripts/mise-update.service"), "utf8");
+    await writeFile("/etc/systemd/system/mise-update.service", renderUpdateUnit(updTpl, { webRoot }));
+    await copyFile(path.join(webRoot, "scripts/mise-update.timer"), "/etc/systemd/system/mise-update.timer");
     await run("systemctl", ["daemon-reload"]);
     log("nginx site + systemd units installed");
 
@@ -463,8 +463,8 @@ async function main() {
           holder.on("error", (e) => { clearTimeout(t); reject(e); });
         });
         await run("pkcheck", ["--action-id", SYSTEMD_MANAGE_UNITS, "--process", pid,
-          "--detail", "unit", "dojobay-server.service", "--detail", "verb", "restart"]);
-        log(`${SERVICE_USER} can restart dojobay-server.service; self-update can complete`);
+          "--detail", "unit", "mise-server.service", "--detail", "verb", "restart"]);
+        log(`${SERVICE_USER} can restart mise-server.service; self-update can complete`);
       } catch (e) {
         // Exit 1, 2 and 3 are answers about authorisation; anything else is
         // pkcheck unable to ask, which says nothing about the rule.
@@ -481,7 +481,7 @@ async function main() {
           log(`! rule written, but it could not be verified here (${e.message}).`);
           log(`  That is pkcheck being unable to ask rather than an answer about the rule.`);
           log(`  Test it directly when convenient, which restarts the service:`);
-          log(`  sudo -u ${SERVICE_USER} systemctl restart dojobay-server.service`);
+          log(`  sudo -u ${SERVICE_USER} systemctl restart mise-server.service`);
         }
       } finally {
         try { holder?.kill(); } catch { /* already gone */ }
@@ -544,8 +544,8 @@ async function main() {
     // Clear any failed state first. Reinstalling over a broken install leaves
     // the old units in `failed`, and a failed oneshot does not re-arm its timer,
     // so a corrected install could still never poll.
-    await run("systemctl", ["reset-failed", "dojobay-server.service",
-      "dojobay-update.service", "dojobay-update.timer"]).catch(() => {});
+    await run("systemctl", ["reset-failed", "mise-server.service",
+      "mise-update.service", "mise-update.timer"]).catch(() => {});
     // The TIMER is deliberately not started yet. Enabling it with --now fires a
     // catch-up run at once, because its schedule is a calendar one with
     // Persistent=true, and that ran headlong into the installer's own first
@@ -553,9 +553,9 @@ async function main() {
     // failing, and an install ending with warnings about a directory that was
     // already perfectly up to date. Enabled for boot here, started after the
     // first cycle has finished.
-    await run("systemctl", ["enable", "dojobay-update.timer"]);
-    await run("systemctl", ["enable", "--now", "nginx", "dojobay-server.service"]);
-    await run("systemctl", ["restart", "nginx", "dojobay-server.service"]);
+    await run("systemctl", ["enable", "mise-update.timer"]);
+    await run("systemctl", ["enable", "--now", "nginx", "mise-server.service"]);
+    await run("systemctl", ["restart", "nginx", "mise-server.service"]);
     log("services enabled and started");
 
     // One probe cycle now, rather than leaving the first one to the timer.
@@ -590,7 +590,7 @@ async function main() {
 
     // Now the timer, with the first cycle out of the way and nothing for its
     // catch-up run to collide with.
-    await run("systemctl", ["start", "dojobay-update.timer"]);
+    await run("systemctl", ["start", "mise-update.timer"]);
 
     // Prove the timer is actually scheduled, the same way the ownership check
     // proves the chown took. An enabled timer with no next elapse is exactly the
@@ -598,15 +598,15 @@ async function main() {
     // finished, and never updates again. Checked after the first probe cycle
     // because a schedule relative to the last run has nothing to work from until
     // one has happened.
-    const next = await run("systemctl", ["show", "dojobay-update.timer",
+    const next = await run("systemctl", ["show", "mise-update.timer",
       "-p", "NextElapseUSecRealtime", "--value"]).then((r) => String(r.stdout || "").trim(), () => "");
     if (!next || next === "0" || /^n\/a$/i.test(next)) {
       timerUnarmed = true;
       log("✗ the update timer is enabled but has no next run scheduled");
       log("  your directory would serve its list and never refresh it. To fix:");
-      log("  sudo systemctl reset-failed dojobay-update.service dojobay-update.timer");
-      log("  sudo systemctl start dojobay-update.service");
-      log("  systemctl list-timers dojobay-update.timer");
+      log("  sudo systemctl reset-failed mise-update.service mise-update.timer");
+      log("  sudo systemctl start mise-update.service");
+      log("  systemctl list-timers mise-update.timer");
     } else {
       log(`update timer armed; next run ${next}`);
     }
@@ -621,7 +621,7 @@ async function main() {
       ? ["!! the update timer has no next run scheduled — see the note above, or this",
          "   instance will serve its list and never refresh it"]
       : []),
-    `Your Dojo Bay is live at http://${onionHost}/`,
+    `Your mise is live at http://${onionHost}/`,
     "· sign in at /admin with your PayNym (Auth47) to moderate",
     "· the ten-minute timer keeps statuses, history and avatars current",
     "· the footer's branch icon serves this instance's own source zip",

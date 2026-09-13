@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// Pack this instance's own codebase into data/dojobay-src.zip, so the running
+// Pack this instance's own codebase into data/mise-src.zip, so the running
 // site is its own distribution point: visitors download exactly the code the
 // instance runs (the footer's source icon), with no reliance on GitHub being
 // reachable. Node builtins only -- the ZIP container is written by hand
 // (deflate entries via zlib + a central directory), because a bare box has no
 // `zip` binary and scripts/ must run everywhere.
 //
-//   node scripts/pack-source.mjs          write data/dojobay-src.zip
+//   node scripts/pack-source.mjs          write data/mise-src.zip
 //
 // What goes in is manifest-driven, and what stays out matters more than what
 // goes in: NEVER the submission store (Dojo API keys, sessions), never the
@@ -21,7 +21,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const PREFIX = "dojobay/";                       // extraction lands in one folder
+const PREFIX = "mise/";                       // extraction lands in one folder
 
 const INCLUDE_FILES = [
   "index.html", "manifest.json", "sw.js", "favicon.svg", "og-image.png",
@@ -126,7 +126,7 @@ export async function packSource({ root = ROOT, outDir = path.join(ROOT, "data")
   }
   const zip = buildZip(entries);
   await mkdir(outDir, { recursive: true });
-  const out = path.join(outDir, "dojobay-src.zip");
+  const out = path.join(outDir, "mise-src.zip");
   await writeFile(out + ".tmp", zip);
   await rename(out + ".tmp", out);
   return { out, files: files.length, bytes: zip.length };

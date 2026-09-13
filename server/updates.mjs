@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 import { socks5Connect } from "../scripts/update.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const GITHUB_REPO = process.env.GITHUB_REPO || "Dojobay/dojobay";
+const GITHUB_REPO = process.env.GITHUB_REPO || "linkinparkrulz/mise";
 const API_HOST = "api.github.com";
 
 // The request line and headers, separated out so the Accept value is testable
@@ -35,7 +35,7 @@ const API_HOST = "api.github.com";
 // The metadata calls keep the JSON type, which is what those routes serve and
 // what pins the API version.
 export function githubRequestHead(apiPath, host, { binary = false } = {}) {
-  return `GET ${apiPath} HTTP/1.1\r\nHost: ${host}\r\nUser-Agent: dojobay-update-check\r\n` +
+  return `GET ${apiPath} HTTP/1.1\r\nHost: ${host}\r\nUser-Agent: mise-update-check\r\n` +
     `Accept: ${binary ? "*/*" : "application/vnd.github+json"}\r\n` +
     `Accept-Encoding: identity\r\nConnection: close\r\n\r\n`;
 }

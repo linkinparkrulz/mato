@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// The Dojo Bay — restore payload.pairing.version to the value that was signed.
+// mise — restore payload.pairing.version to the value that was signed.
 //
 // Some records have a stored pairing payload whose `version` was updated after
 // the operator signed it (a Dojo upgrade, typically), so the published payload
@@ -15,11 +15,11 @@
 // left alone.
 //
 // Usage, on the box:
-//     cd /var/www/dojobay/server
+//     cd /var/www/mise/server
 //     node fix-payload-version.mjs             # dry run, changes nothing
-//     sudo systemctl stop dojobay-server.service
+//     sudo systemctl stop mise-server.service
 //     node fix-payload-version.mjs --apply     # writes, after a backup
-//     sudo systemctl start dojobay-server.service
+//     sudo systemctl start mise-server.service
 //
 // The stop/start matters: server/store.ts keeps the store in memory and is
 // designed as a single writer, so editing store.json underneath a running
@@ -54,13 +54,13 @@ const withoutVersion = (payload) => {
 
 if (APPLY && !FORCE) {
   let active = "";
-  try { active = execFileSync("systemctl", ["is-active", "dojobay-server.service"], { encoding: "utf8" }).trim(); } catch (e) { active = (e.stdout || "").trim(); }
+  try { active = execFileSync("systemctl", ["is-active", "mise-server.service"], { encoding: "utf8" }).trim(); } catch (e) { active = (e.stdout || "").trim(); }
   if (active === "active") {
-    console.error("REFUSING: dojobay-server.service is running.\n" +
+    console.error("REFUSING: mise-server.service is running.\n" +
       "The store is held in memory by the server and would overwrite this edit.\n" +
-      "  sudo systemctl stop dojobay-server.service\n" +
+      "  sudo systemctl stop mise-server.service\n" +
       "  node fix-payload-version.mjs --apply\n" +
-      "  sudo systemctl start dojobay-server.service\n" +
+      "  sudo systemctl start mise-server.service\n" +
       "(--force overrides this check, but do not use it on a live instance.)");
     process.exit(2);
   }

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// The Dojo Bay — audit stored signed pairing blocks.
+// mise — audit stored signed pairing blocks.
 //
 // READ-ONLY. Walks every record in the submission store and re-checks its
 // stored `signed` block with exactly the gate the submit endpoint uses
@@ -14,7 +14,7 @@
 // tells you whether anything was left behind.
 //
 // Run on the box as the deploy user:
-//     cd /var/www/dojobay/server && node audit-signed.mjs
+//     cd /var/www/mise/server && node audit-signed.mjs
 // SERVER_DATA_DIR defaults to ./data, the same path the server uses; set it
 // only if your store lives elsewhere.
 //

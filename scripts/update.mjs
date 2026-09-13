@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// The Dojo Bay — directory updater
+// mise — directory updater
 //
 // Probes every node's .onion pairing endpoint over Tor and rewrites the two
 // JSON databases the website reads:
@@ -312,7 +312,7 @@ export async function fetchAvatar(paymentCode, { proxyHost, proxyPort, destDir, 
   const cfg = { proxyHost, proxyPort };
   let pathPart = `/${encodeURIComponent(paymentCode)}/avatar`;
   for (let hop = 0; hop < 2; hop++) {          // follow at most one same-host redirect
-    const req = `GET ${pathPart} HTTP/1.0\r\nHost: ${host}\r\nUser-Agent: dojobay-checker\r\nConnection: close\r\n\r\n`;
+    const req = `GET ${pathPart} HTTP/1.0\r\nHost: ${host}\r\nUser-Agent: mise-checker\r\nConnection: close\r\n\r\n`;
     const res = await httpOverTor(cfg, host, port, req, timeoutMs);
     if ([301, 302, 307, 308].includes(res.status)) {
       const m = res.rawHead && res.rawHead.match(/\r\nlocation:\s*([^\r\n]+)/i);
@@ -387,7 +387,7 @@ async function probeHeight(url, cfg) {
     const req =
       `POST ${base}/auth/login HTTP/1.0\r\nHost: ${host}\r\n` +
       `Content-Type: application/x-www-form-urlencoded\r\nContent-Length: ${Buffer.byteLength(body)}\r\n` +
-      `User-Agent: dojobay-checker\r\nConnection: close\r\n\r\n${body}`;
+      `User-Agent: mise-checker\r\nConnection: close\r\n\r\n${body}`;
     const res = await httpOverTor(cfg, host, port, req, cfg.timeoutMs);
     detectedVersion = parseDojoVersion(res.rawHead, cfg.dojoVersionHeader) || detectedVersion;
     if (res.status !== 200) return { up: false, reason: `login HTTP ${res.status || "no-response"}`, ms: Date.now() - t0, detectedVersion };
@@ -402,7 +402,7 @@ async function probeHeight(url, cfg) {
     const q = `active=${dummy}&new=${dummy}`;
     const req =
       `GET ${base}/wallet?${q} HTTP/1.0\r\nHost: ${host}\r\n` +
-      `Authorization: Bearer ${token}\r\nUser-Agent: dojobay-checker\r\nConnection: close\r\n\r\n`;
+      `Authorization: Bearer ${token}\r\nUser-Agent: mise-checker\r\nConnection: close\r\n\r\n`;
     const res = await httpOverTor(cfg, host, port, req, cfg.timeoutMs);
     detectedVersion = detectedVersion || parseDojoVersion(res.rawHead, cfg.dojoVersionHeader);
     if (res.status !== 200) return { up: false, reason: `wallet HTTP ${res.status || "no-response"}`, ms: Date.now() - t0, detectedVersion };
@@ -418,7 +418,7 @@ async function probeHeight(url, cfg) {
     try {
       const sreq =
         `GET ${base}/support/services HTTP/1.0\r\nHost: ${host}\r\n` +
-        `Authorization: Bearer ${token}\r\nUser-Agent: dojobay-checker\r\nConnection: close\r\n\r\n`;
+        `Authorization: Bearer ${token}\r\nUser-Agent: mise-checker\r\nConnection: close\r\n\r\n`;
       const sres = await httpOverTor(cfg, host, port, sreq, cfg.timeoutMs);
       detectedVersion = detectedVersion || parseDojoVersion(sres.rawHead, cfg.dojoVersionHeader);
       if (sres.status === 200) detectedIndexer = parseIndexerUrl(sres.body);
@@ -519,7 +519,7 @@ export async function probe(url, cfgIn = CFG) {
     socket.on("close", () => finish(got.length > 0, "closed"));
 
     socket.write(
-      `HEAD ${reqPath} HTTP/1.0\r\nHost: ${host}\r\nUser-Agent: dojobay-checker\r\nConnection: close\r\n\r\n`
+      `HEAD ${reqPath} HTTP/1.0\r\nHost: ${host}\r\nUser-Agent: mise-checker\r\nConnection: close\r\n\r\n`
     );
   });
 }
@@ -612,7 +612,7 @@ async function main() {
   // Keep the self-hosted source download current: regenerate the zip when it
   // is missing or older than data/version.json (i.e. after any code deploy).
   try {
-    const zipPath = path.join(CFG.dataDir, "dojobay-src.zip");
+    const zipPath = path.join(CFG.dataDir, "mise-src.zip");
     const verPath = path.join(CFG.dataDir, "version.json");
     const zipSt = await fsStat(zipPath).catch(() => null);
     const verSt = await fsStat(verPath).catch(() => null);

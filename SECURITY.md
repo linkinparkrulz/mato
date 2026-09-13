@@ -5,7 +5,7 @@
 **Please do not open a public issue for a security problem.**
 
 The preferred route is GitHub's **[private vulnerability
-reporting](https://github.com/Dojobay/dojobay/security/advisories/new)**. It is
+reporting](https://github.com/linkinparkrulz/mise/security/advisories/new)**. It is
 private between you and the maintainer, needs no email address from either side,
 and keeps the report attached to the repository.
 

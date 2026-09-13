@@ -1,4 +1,4 @@
-// Auth47 login and BIP47 signed-payload verification for The Dojo Bay backend.
+// Auth47 login and BIP47 signed-payload verification for mise backend.
 // Thin wrappers over the audited Samourai libraries; the exact call shapes here
 // were verified against the libraries end to end (see selftest.mjs).
 import { Auth47Verifier } from "@dojo-tools/auth47";
@@ -298,7 +298,7 @@ export function verifySignedPayload({ signedText, expectedMessage, expectedAddre
 }
 
 // ---- operator binding (data/operator.json) ----------------------------------
-// A Dojo Bay instance MUST prove who runs it: operator.json binds the onion
+// A mise instance MUST prove who runs it: operator.json binds the onion
 // address to the operator's payment code via a wallet signature over the text
 //
 //     http://<onion>/

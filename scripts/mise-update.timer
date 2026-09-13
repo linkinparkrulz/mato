@@ -1,8 +1,8 @@
-# Install to /etc/systemd/system/dojobay-update.timer then:
+# Install to /etc/systemd/system/mise-update.timer then:
 #   sudo systemctl daemon-reload
-#   sudo systemctl enable --now dojobay-update.timer
+#   sudo systemctl enable --now mise-update.timer
 [Unit]
-Description=Run The Dojo Bay updater every 10 minutes
+Description=Run mise updater every 10 minutes
 
 [Timer]
 # A wall-clock schedule, NOT OnUnitActiveSec.

@@ -133,7 +133,7 @@ export function tuiUI() {
   const noteBlock = () => { const n = pendingNotes.join("\n"); pendingNotes = []; return n; };
   process.on("exit", () => screen.leave());
   return {
-    async step(n, total, title) { stepLabel = `The Dojo Bay installer · step ${n} of ${total}`; stepTitle = title; },
+    async step(n, total, title) { stepLabel = `mise installer · step ${n} of ${total}`; stepTitle = title; },
     /** @param {any[]} fields @param {{ note?: string }} [opts] */
     async form(fields, { note } = {}) {
       const merged = [noteBlock(), note].filter(Boolean).join("\n");
@@ -170,7 +170,7 @@ export function tuiUI() {
       await screen.runForm([], { stepLabel, title, note: [noteBlock(), ...lines].filter(Boolean).join("\n") });
     },
     async finish(lines) {
-      await screen.runForm([], { stepLabel: "The Dojo Bay installer · complete", title: "Done", note: lines.join("\n") });
+      await screen.runForm([], { stepLabel: "mise installer · complete", title: "Done", note: lines.join("\n") });
       screen.leave();
     },
     async fail(message) { screen.leave(); console.error(bad("✗ " + message)); process.exit(1); },

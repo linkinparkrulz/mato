@@ -1,4 +1,4 @@
-// Pure helpers for the Dojo Bay installer: input validators, config
+// Pure helpers for the mise installer: input validators, config
 // renderers, and the terminal theme. No I/O and no prompts here -- everything
 // is a plain function so scripts/selftest.mjs can exercise the installer's
 // logic without a terminal. Node builtins only.
@@ -58,7 +58,7 @@ export const operatorMessage = (onionHost, paymentCode) =>
   `http://${onionHost}/\n\nBIP47: ${paymentCode}`;
 
 // ---- torrc ------------------------------------------------------------------
-export const TORRC_MARK = "# dojobay hidden service (managed by scripts/install.mjs)";
+export const TORRC_MARK = "# mise hidden service (managed by scripts/install.mjs)";
 export function torrcBlock(hsDir) {
   return `${TORRC_MARK}\nHiddenServiceDir ${hsDir}\nHiddenServicePort 80 127.0.0.1:8080\n`;
 }
@@ -87,13 +87,13 @@ export function stripTorrc(existing) {
 // The account both services run as. It is rendered into the units, and the
 // installer creates it, because the templates shipped with names that were true
 // of one particular machine and of nobody else's: the backend unit said deploy
-// and the updater unit said dojobay, neither renderer touched either line, and
+// and the updater unit said mise, neither renderer touched either line, and
 // the installer created neither account. On a fresh box both services therefore
 // failed to start with 217/USER. Nothing said so out loud: nginx serves the
 // directory as static files whether or not the backend is alive, so the site
 // came up looking correct while the updater never ran once, which is why an
 // install could finish with stale statuses, no block heights and no avatars.
-export const SERVICE_USER = "dojobay";
+export const SERVICE_USER = "mise";
 
 export function renderServerUnit(template, { webRoot, baseUrl, adminCode, user = SERVICE_USER }) {
   return template
@@ -159,7 +159,7 @@ export function planSystemFile({ installed, shipped }) {
 }
 
 export function renderNginx(template, { webRoot }) {
-  return template.replace(/root \/var\/www\/dojobay;/g, `root ${webRoot};`);
+  return template.replace(/root \/var\/www\/mise;/g, `root ${webRoot};`);
 }
 
 // The unit name is fixed and the account is not, so only the account is
@@ -167,7 +167,7 @@ export function renderNginx(template, { webRoot }) {
 // matched a prefix would grant more than it says, and the whole argument for
 // offering this at install time is that an operator can read what they are
 // agreeing to in four lines.
-export function renderPolkitRule(template, { user = SERVICE_USER, unit = "dojobay-server.service" } = {}) {
+export function renderPolkitRule(template, { user = SERVICE_USER, unit = "mise-server.service" } = {}) {
   return template
     .replace(/action\.lookup\("unit"\) == "[^"]*"/g, `action.lookup("unit") == "${unit}"`)
     .replace(/subject\.user == "[^"]*"/g, `subject.user == "${user}"`);
@@ -176,7 +176,7 @@ export function renderPolkitRule(template, { user = SERVICE_USER, unit = "dojoba
 // Where that rule goes, and the pkcheck question that asks polkit the same
 // thing systemd will ask. Exported so the installer and its tests agree on both
 // rather than each spelling them out.
-export const POLKIT_RULE_PATH = "/etc/polkit-1/rules.d/49-dojobay-restart.rules";
+export const POLKIT_RULE_PATH = "/etc/polkit-1/rules.d/49-mise-restart.rules";
 export const SYSTEMD_MANAGE_UNITS = "org.freedesktop.systemd1.manage-units";
 
 // ---- seed / operator documents ----------------------------------------------
@@ -343,9 +343,9 @@ export function banner(width = (process.stdout.columns || 80), commit = null) {
   // wraps into rubble, so the name alone is the better answer. The build still
   // goes in, because it is the line most worth having in a bug report.
   if (!process.stdout.isTTY || width < art + 2) {
-    return bold("THE DOJO BAY \u2014 installer") + dim(build) + "\n";
+    return bold("MISE \u2014 installer") + dim(build) + "\n";
   }
   return TORII.map((l) => red(l)).join("\n")
-    + "\n\n" + bold("  THE DOJO BAY")
+    + "\n\n" + bold("  MISE")
     + dim(`  \u00b7  onion-only Dojo directory \u00b7 guided install${build}\n`);
 }

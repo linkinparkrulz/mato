@@ -13,12 +13,12 @@ import os from "node:os";
 import pathMod from "node:path";
 
 // point the backend at a temp store + mock proxy BEFORE importing it
-process.env.SERVER_DATA_DIR = "/tmp/dojobay-selftest";
-process.env.BASE_URL = "http://exampledojobayonion.onion";
+process.env.SERVER_DATA_DIR = "/tmp/mise-selftest";
+process.env.BASE_URL = "http://examplemiseonion.onion";
 process.env.PORT = "0";
 process.env.TOR_SOCKS_PORT = "19077";
 // isolate the public data dir so admin approve's rebuild() never writes live data
-process.env.PUBLIC_DATA_DIR = "/tmp/dojobay-selftest-data";
+process.env.PUBLIC_DATA_DIR = "/tmp/mise-selftest-data";
 // make the simulated wallet's payment code an admin so /admin routes are testable
 process.env.ADMIN_PAYMENT_CODES = BIP47Factory(ecc)
   .fromSeed(mnemonicToSeedSync("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"))
@@ -375,8 +375,8 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   const { execFile } = await import("node:child_process");
   const { promisify } = await import("node:util");
   const run = promisify(execFile);
-  const MIG_DATA = "/tmp/dojobay-selftest-mig-data";
-  const MIG_STORE = "/tmp/dojobay-selftest-mig-store";
+  const MIG_DATA = "/tmp/mise-selftest-mig-data";
+  const MIG_STORE = "/tmp/mise-selftest-mig-store";
   await fsp.rm(MIG_DATA, { recursive: true, force: true });
   await fsp.rm(MIG_STORE, { recursive: true, force: true });
   await fsp.mkdir(MIG_DATA, { recursive: true });
@@ -588,11 +588,11 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
     { name: "v0.1", commit: { sha: "0000000000000000000000000000000000000b" } },
   ];
   const transportFor = (withTags) => async (apiPath) => {
-    if (apiPath.startsWith("/repos/Dojobay/dojobay/compare/"))
+    if (apiPath.startsWith("/repos/linkinparkrulz/mise/compare/"))
       return { status: 200, body: JSON.stringify({ status: "behind", ahead_by: 4, behind_by: 0 }) };
-    if (apiPath.startsWith("/repos/Dojobay/dojobay/releases"))
+    if (apiPath.startsWith("/repos/linkinparkrulz/mise/releases"))
       return { status: 200, body: JSON.stringify(releases) };
-    if (apiPath.startsWith("/repos/Dojobay/dojobay/tags"))
+    if (apiPath.startsWith("/repos/linkinparkrulz/mise/tags"))
       return withTags ? { status: 200, body: JSON.stringify(tags) } : { status: 500, body: "{}" };
     return { status: 404, body: "{}" };
   };
@@ -817,8 +817,8 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
       { id: "mainnet-selftest-node", network: "mainnet", name: "selftest-node",
         payload: { pairing: { type: "dojo.api", url: "http://" + "d".repeat(56) + ".onion/v2", apikey: "k" } },
         operator_domain: "example.org",
-        operator_domain_proof: { domain: "example.org", paymentCode, txt_name: "_dojobay.example.org",
-          txt_value: `dojobay-domain-v1 pm=${paymentCode}`, signed: signedUrlBlock, verified_at: "2026-07-01T00:00:00Z" } },
+        operator_domain_proof: { domain: "example.org", paymentCode, txt_name: "_mise.example.org",
+          txt_value: `mise-domain-v1 pm=${paymentCode}`, signed: signedUrlBlock, verified_at: "2026-07-01T00:00:00Z" } },
       // Signed over ITS OWN payload. It used to carry the block covering a
       // different node's pairing details and imported cleanly, because nothing
       // verified the signature: the source instance's word was the only thing
@@ -830,7 +830,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
         // a forged proof: the signature does not check out against the code
         operator_domain: "evil.example",
         operator_domain_proof: { domain: "evil.example", paymentCode: "PM8T" + "9".repeat(112),
-          txt_name: "_dojobay.evil.example", txt_value: "dojobay-domain-v1 pm=PM8T" + "9".repeat(112),
+          txt_name: "_mise.evil.example", txt_value: "mise-domain-v1 pm=PM8T" + "9".repeat(112),
           signed: signedUrlBlock, verified_at: "2026-07-01T00:00:00Z" } },
       // published by an instance that does not enforce the signature rule, or
       // from before it existed. It must not enter this store.
@@ -922,7 +922,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
        "an applied import runs a probe cycle, as the installer does before declaring success");
     ok(job.indexOf("tryRebuild()") < job.indexOf('job.phase = "probing"'),
        "after the rebuild, so the cycle sees the records it is about to probe");
-    ok(/is-active", "--quiet", "dojobay-update\.service"/.test(job),
+    ok(/is-active", "--quiet", "mise-update\.service"/.test(job),
        "and skips it when a cycle is already running, since there is no lock and two would race");
     ok(/\(job\.result\?\.imported \?\? 0\) > 0/.test(job),
        "nothing is probed when nothing was imported");
@@ -1006,7 +1006,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   const { packSource } = await import("../scripts/pack-source.mjs");
 
   // build a real archive to feed the peer fetcher's zip step
-  const tmp = await fsp.mkdtemp(pathMod.join(os.tmpdir(), "dojobay-su-"));
+  const tmp = await fsp.mkdtemp(pathMod.join(os.tmpdir(), "mise-su-"));
   const packed = await packSource({ outDir: tmp });
   const zipBytes = await fsp.readFile(packed.out);
 
@@ -1034,7 +1034,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   // tree it could not back up, and an empty directory is not a tree anyone
   // updates. Instance data alongside, so the backup filter is exercised rather
   // than assumed.
-  const webRoot = await fsp.mkdtemp(pathMod.join(os.tmpdir(), "dojobay-suweb-"));
+  const webRoot = await fsp.mkdtemp(pathMod.join(os.tmpdir(), "mise-suweb-"));
   await fsp.mkdir(pathMod.join(webRoot, "server", "data"), { recursive: true });
   await fsp.mkdir(pathMod.join(webRoot, "assets"), { recursive: true });
   await fsp.writeFile(pathMod.join(webRoot, "server", "index.mjs"), "// current");
@@ -1212,13 +1212,13 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
 
   // the TXT record: strict about the code, tolerant of quoting and whitespace
   const rec = dom.txtValue(paymentCode);
-  ok(dom.txtName("example.com") === "_dojobay.example.com"
+  ok(dom.txtName("example.com") === "_mise.example.com"
      && dom.txtMatches(rec, paymentCode)
      && dom.txtMatches('"' + rec + '"', paymentCode)
      && dom.txtMatches(rec.replace(" ", "   "), paymentCode)
      && !dom.txtMatches(rec.replace(/pm=PM8T/, "pm=PM8Tx"), paymentCode)
      && !dom.txtMatches("v=spf1 include:example.com", paymentCode)
-     && !dom.txtMatches("dojobay-domain-v1", paymentCode),
+     && !dom.txtMatches("mise-domain-v1", paymentCode),
      "the TXT record matcher accepts real-world quoting but pins the payment code");
 
   // DoH answers, including a long record split across quoted strings
@@ -1268,7 +1268,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   // API: prepare returns the exact record and text; submission verifies with DNS
   // stubbed, and admin revocation clears the badge
   const prep = await api("/api/domain/prepare", "POST", { domain: "Example.COM" });
-  ok(prep.status === 200 && prep.body.txt_name === "_dojobay.example.com"
+  ok(prep.status === 200 && prep.body.txt_name === "_mise.example.com"
      && prep.body.txt_value === rec && prep.body.sign_text === claim,
      "prepare returns the exact TXT record and text to sign");
 
@@ -1400,7 +1400,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   const pf = n.operator_domain_proof;
   ok(pf && pf.domain === "example.org" && pf.paymentCode === paymentCode,
      "the proof names the domain and the payment code it is bound to");
-  ok(pf.txt_name === "_dojobay.example.org" && pf.txt_value === `dojobay-domain-v1 pm=${paymentCode}`,
+  ok(pf.txt_name === "_mise.example.org" && pf.txt_value === `mise-domain-v1 pm=${paymentCode}`,
      "it publishes the exact TXT record a reader should look up");
   ok(pf.signed === signedBlock && pf.verified_at === "2026-07-01T00:00:00Z",
      "and the signed statement, so the signature half can be checked independently");
@@ -1662,11 +1662,11 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
 
   // dirSize replaces `du -sb`, so it must agree with it, and it must not follow
   // a symlink out of the tree it was asked about.
-  const root = pathMod.join(os.tmpdir(), "dojobay-dirsize-" + Date.now());
+  const root = pathMod.join(os.tmpdir(), "mise-dirsize-" + Date.now());
   await fsp.mkdir(pathMod.join(root, "nested"), { recursive: true });
   await fsp.writeFile(pathMod.join(root, "a.bin"), Buffer.alloc(1000));
   await fsp.writeFile(pathMod.join(root, "nested", "b.bin"), Buffer.alloc(2000));
-  const outside = pathMod.join(os.tmpdir(), "dojobay-dirsize-outside-" + Date.now());
+  const outside = pathMod.join(os.tmpdir(), "mise-dirsize-outside-" + Date.now());
   await fsp.writeFile(outside, Buffer.alloc(9_000_000));
   await fsp.symlink(outside, pathMod.join(root, "link.bin"));
   const size = await cr.dirSize(root);
@@ -1680,7 +1680,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   // option and reported the wrong tree; nothing in Node cares.
   const cwd = process.cwd();
   process.chdir(os.tmpdir());
-  const hyphen = "-dojobay-" + Date.now();
+  const hyphen = "-mise-" + Date.now();
   await fsp.mkdir(hyphen, { recursive: true });
   await fsp.writeFile(pathMod.join(hyphen, "c.bin"), Buffer.alloc(4096));
   ok(await cr.dirSize(hyphen) === 4096,
@@ -1861,7 +1861,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
 //      302 goes to codeload, which this transport already follows.
 {
   const { githubRequestHead } = await import("./updates.mjs");
-  const head = (opts) => githubRequestHead("/repos/Dojobay/dojobay/zipball/abc", "api.github.com", opts);
+  const head = (opts) => githubRequestHead("/repos/linkinparkrulz/mise/zipball/abc", "api.github.com", opts);
 
   const accept = (h) => (h.match(/\r\nAccept:\s*([^\r\n]+)/) || [])[1];
   ok(accept(head({ binary: true })) === "*/*",
@@ -1874,7 +1874,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   // the rest of the request has to stay a well-formed HTTP/1.1 head, since the
   // reply parser depends on Connection: close and on identity encoding.
   const h = head({ binary: true });
-  ok(/^GET \/repos\/Dojobay\/dojobay\/zipball\/abc HTTP\/1\.1\r\n/.test(h), "request line intact");
+  ok(/^GET \/repos\/linkinparkrulz\/mise\/zipball\/abc HTTP\/1\.1\r\n/.test(h), "request line intact");
   ok(/\r\nHost: api\.github\.com\r\n/.test(h), "Host is the hop's host, not a constant");
   ok(/\r\nAccept-Encoding: identity\r\n/.test(h) && /\r\nConnection: close\r\n\r\n$/.test(h),
      "identity encoding and Connection: close, which the reply parser relies on");

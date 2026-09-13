@@ -14,7 +14,7 @@
 const major = Number(process.versions.node.split(".")[0]);
 if (Number.isNaN(major) || major < 24) {
   console.error(
-    `The Dojo Bay backend needs Node 24 or newer (found ${process.versions.node}).\n` +
+    `mise backend needs Node 24 or newer (found ${process.versions.node}).\n` +
     "It runs TypeScript directly, which relies on type stripping added in Node 24,\n" +
     "and its BIP47 libraries require it too. Upgrade Node, then restart the service.");
   process.exit(1);

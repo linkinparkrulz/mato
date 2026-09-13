@@ -84,7 +84,7 @@ async function httpsGetOverTor(host: string, path: string,
     const timer = setTimeout(() => finish(reject, new Error("timeout")), timeoutMs);
     const socket = tls.connect({ socket: raw, servername: host, ...(tlsCa ? { ca: tlsCa } : {}) }, () => {
       socket.write(
-        `GET ${path} HTTP/1.1\r\nHost: ${host}\r\nUser-Agent: dojobay-domain-check\r\n` +
+        `GET ${path} HTTP/1.1\r\nHost: ${host}\r\nUser-Agent: mise-domain-check\r\n` +
         `Accept: application/dns-json\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n`);
     });
     const chunks: Buffer[] = [];

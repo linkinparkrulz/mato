@@ -1,17 +1,17 @@
-# Install to /etc/systemd/system/dojobay-server.service (step 2 only).
+# Install to /etc/systemd/system/mise-server.service (step 2 only).
 # The self-service backend. Runs as the deploy user, bound to localhost; nginx
 # reverse-proxies /api/ to it. Needs Tor (for the connection gate) and the
 # server/ dependencies installed (cd server && npm ci).
 [Unit]
-Description=The Dojo Bay self-service submission backend
+Description=mise self-service submission backend
 After=tor.service network-online.target
 Wants=tor.service
 
 [Service]
 Type=simple
-User=deploy
-Group=deploy
-WorkingDirectory=/var/www/dojobay/server
+User=mise
+Group=mise
+WorkingDirectory=/var/www/mise/server
 # BASE_URL MUST be the site's public origin (its .onion), used for the Auth47
 # callback and resource. Set it to your hidden-service address.
 Environment=PORT=8787

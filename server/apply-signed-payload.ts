@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// The Dojo Bay — apply operator-signed pairing payload updates.
+// mise — apply operator-signed pairing payload updates.
 //
 // Takes signed blocks an operator has sent out of band (a re-signed pairing
 // payload, a new apikey, a moved onion) and applies them to the store, doing
@@ -18,11 +18,11 @@
 // is left alone: an approved listing stays approved, a pending one stays pending.
 //
 // Usage, on the box:
-//     cd /var/www/dojobay/server
+//     cd /var/www/mise/server
 //     node apply-signed-payload.ts blocks/*.txt              # dry run
-//     sudo systemctl stop dojobay-server.service
+//     sudo systemctl stop mise-server.service
 //     node apply-signed-payload.ts --apply blocks/*.txt
-//     sudo systemctl start dojobay-server.service
+//     sudo systemctl start mise-server.service
 //     node audit-signed.mjs
 //
 // Each file holds one signed block. `--id <record-id>` pins the target when a
@@ -60,14 +60,14 @@ if (!FILES.length) {
 
 if (APPLY && !FORCE) {
   let active = "";
-  try { active = execFileSync("systemctl", ["is-active", "dojobay-server.service"], { encoding: "utf8" }).trim(); }
+  try { active = execFileSync("systemctl", ["is-active", "mise-server.service"], { encoding: "utf8" }).trim(); }
   catch (e: any) { active = (e.stdout || "").trim(); }
   if (active === "active") {
-    console.error("REFUSING: dojobay-server.service is running.\n" +
+    console.error("REFUSING: mise-server.service is running.\n" +
       "The store is held in memory by the server and would overwrite this edit.\n" +
-      "  sudo systemctl stop dojobay-server.service\n" +
+      "  sudo systemctl stop mise-server.service\n" +
       "  node apply-signed-payload.ts --apply <files…>\n" +
-      "  sudo systemctl start dojobay-server.service");
+      "  sudo systemctl start mise-server.service");
     process.exit(2);
   }
 }

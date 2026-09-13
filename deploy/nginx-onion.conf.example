@@ -1,17 +1,17 @@
-# The Dojo Bay — onion-only nginx config.
+# mise — onion-only nginx config.
 # nginx binds to localhost ONLY; the Tor daemon maps the hidden service's
 # port 80 onto it (see the HiddenServicePort line in the README). Nothing is
 # exposed on the machine's public IP except SSH.
 #
 # Install:
-#   sudo cp deploy/nginx-onion.conf.example /etc/nginx/sites-available/dojobay
-#   sudo ln -s /etc/nginx/sites-available/dojobay /etc/nginx/sites-enabled/
+#   sudo cp deploy/nginx-onion.conf.example /etc/nginx/sites-available/mise
+#   sudo ln -s /etc/nginx/sites-available/mise /etc/nginx/sites-enabled/
 #   sudo rm -f /etc/nginx/sites-enabled/default
 #   sudo nginx -t && sudo systemctl reload nginx
 server {
     listen 127.0.0.1:8080;
     server_name _;
-    root /var/www/dojobay;
+    root /var/www/mise;
     index index.html;
 
     gzip on;
@@ -31,7 +31,7 @@ server {
     # the staged incoming tree. Both are code rather than secrets, so this is
     # not plugging a leak, it is declining to serve an unbounded and growing
     # archive of every version this instance has ever run to anyone who guesses
-    # a timestamp. The published source is data/dojobay-src.zip, served below,
+    # a timestamp. The published source is data/mise-src.zip, served below,
     # and that is the only copy of the code this instance offers deliberately.
     #
     # ^~ so these win over the regex location blocks further down: a plain

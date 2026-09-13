@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// The Dojo Bay — uninstaller.
+// mise — uninstaller.
 //
 // Reverses what scripts/install.mjs created, and nothing else. Ordered by how
 // recoverable each step is, and it stops well short of the two that are not.
@@ -47,14 +47,14 @@ const flag = (name, fallback) => {
   const i = argv.indexOf(name);
   return i >= 0 && argv[i + 1] ? argv[i + 1] : fallback;
 };
-const WEB_ROOT = flag("--web-root", "/var/www/dojobay");
-const HS_DIR = flag("--onion-dir", "/var/lib/tor/dojobay");
+const WEB_ROOT = flag("--web-root", "/var/www/mise");
+const HS_DIR = flag("--onion-dir", "/var/lib/tor/mise");
 const TORRC = flag("--torrc", "/etc/tor/torrc");
 
-const UNITS = ["dojobay-server.service", "dojobay-update.service", "dojobay-update.timer"]
+const UNITS = ["mise-server.service", "mise-update.service", "mise-update.timer"]
   .map((u) => `/etc/systemd/system/${u}`);
-const NGINX_AVAILABLE = "/etc/nginx/sites-available/dojobay";
-const NGINX_ENABLED = "/etc/nginx/sites-enabled/dojobay";
+const NGINX_AVAILABLE = "/etc/nginx/sites-available/mise";
+const NGINX_ENABLED = "/etc/nginx/sites-enabled/mise";
 
 if (process.getuid && process.getuid() !== 0) {
   console.error("This must run as root: sudo ./uninstall.sh");
@@ -89,7 +89,7 @@ found.onionDir = await exists(HS_DIR);
 try { found.torrcBlock = stripTorrc(await readFile(TORRC, "utf8")).removed; } catch {}
 try { found.onionAddress = (await readFile(path.join(HS_DIR, "hostname"), "utf8")).trim(); } catch {}
 
-say("The Dojo Bay — uninstall\n");
+say("mise — uninstall\n");
 say(`  systemd units        ${found.units.length ? found.units.length + " present" : "none"}`);
 say(`  nginx site           ${found.nginxAvailable || found.nginxEnabled ? "present" : "none"}`);
 say(`  torrc block          ${found.torrcBlock ? "present in " + TORRC : "not found"}`);
@@ -147,7 +147,7 @@ if (PURGE_ONION && found.onionDir && !ASSUME_YES) {
 let backupPath = null;
 if ((PURGE_DATA || PURGE_ONION) && !NO_BACKUP) {
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  backupPath = `/root/dojobay-uninstall-${stamp}.tar.gz`;
+  backupPath = `/root/mise-uninstall-${stamp}.tar.gz`;
   const targets = [];
   if (PURGE_DATA && found.webRoot) targets.push(WEB_ROOT);
   if (PURGE_ONION && found.onionDir) targets.push(HS_DIR);
@@ -163,7 +163,7 @@ if ((PURGE_DATA || PURGE_ONION) && !NO_BACKUP) {
 
 // ---- 1. stop the services ---------------------------------------------------
 step(1, "Stopping and disabling services");
-for (const unit of ["dojobay-update.timer", "dojobay-update.service", "dojobay-server.service"]) {
+for (const unit of ["mise-update.timer", "mise-update.service", "mise-server.service"]) {
   await run("systemctl", ["disable", "--now", unit]);
   say(`   ${unit}`);
 }
@@ -187,9 +187,9 @@ step(4, "Removing the torrc block");
 if (found.torrcBlock) {
   const original = await readFile(TORRC, "utf8");
   const { text } = stripTorrc(original);
-  await writeFile(TORRC + ".dojobay-bak", original);
+  await writeFile(TORRC + ".mise-bak", original);
   await writeFile(TORRC, text);
-  say(`   removed our block from ${TORRC} (original kept at ${TORRC}.dojobay-bak)`);
+  say(`   removed our block from ${TORRC} (original kept at ${TORRC}.mise-bak)`);
   const torTest = await run("tor", ["--verify-config"]);
   if (torTest?.error) say("   tor --verify-config reports a problem; NOT restarting tor. Check the file.");
   else { await run("systemctl", ["restart", "tor"]); say("   tor restarted"); }

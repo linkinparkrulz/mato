@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // =============================================================================
-// The Dojo Bay — resource diagnostic.
+// mise — resource diagnostic.
 //
 // READ-ONLY. Measures what this instance actually uses, rather than guessing,
 // so an operator can size a VPS from evidence and this project can document a
@@ -32,7 +32,7 @@
 // written here. Keep it that way: see sh() below.
 //
 // Usage, on the box:
-//     cd /var/www/dojobay/server && node check-resources.ts
+//     cd /var/www/mise/server && node check-resources.ts
 // =============================================================================
 import { readFile, stat, readdir, lstat, statfs } from "node:fs/promises";
 import { execFile } from "node:child_process";
@@ -68,8 +68,8 @@ const sh = async (cmd: string, args: string[]) => {
 // itself rather than reading this source and guessing: an assertion about what
 // a program does is worth more than one about how it is spelled.
 export const UNITS = [
-  "dojobay-server.service",
-  "dojobay-update.service",
+  "mise-server.service",
+  "mise-update.service",
   "tor.service",
   "nginx.service",
 ];
@@ -120,7 +120,7 @@ export const dirSize = async (p: string): Promise<number | null> => {
 };
 
 const report = async () => {
-  console.log("The Dojo Bay — what this instance actually uses\n");
+  console.log("mise — what this instance actually uses\n");
 
   // ---- the machine ----------------------------------------------------------
   const meminfo = (await read("/proc/meminfo")) || "";
@@ -153,7 +153,7 @@ const report = async () => {
     const peak = Number((await read(`${base}/memory.peak`)) || 0);
     const active = await sh("systemctl", ["is-active", unit]);
     if (!cur && active !== "active") { console.log(`  ${unit.padEnd(24)} not running`); continue; }
-    if (unit.startsWith("dojobay")) ourPeak += peak || cur;
+    if (unit.startsWith("mise")) ourPeak += peak || cur;
     console.log(`  ${unit.padEnd(24)} ${cur ? mb(cur) : "—"}${peak ? "  /  " + mb(peak) : ""}`);
   }
 

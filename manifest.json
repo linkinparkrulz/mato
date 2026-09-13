@@ -1,6 +1,6 @@
 {
-  "name": "The Dojo Bay",
-  "short_name": "Dojo Bay",
+  "name": "mise",
+  "short_name": "mise",
   "description": "A community directory of public Bitcoin Dojo nodes for Samourai, Ashigaru and Sentinel wallets. All nodes reachable over Tor.",
   "start_url": "./",
   "scope": "./",

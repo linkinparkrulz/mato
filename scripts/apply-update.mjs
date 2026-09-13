@@ -85,8 +85,8 @@ async function main() {
     // Restart the service last: this replaces the running (old-code) backend
     // with the new one. If we lack privilege, record it so /admin can show how
     // to finish by hand.
-    try { await run("systemctl", ["restart", "dojobay-server.service"]); }
-    catch (e) { await writeResult({ ok: true, restarting: false, note: "code updated; restart dojobay-server manually: " + e.message }); }
+    try { await run("systemctl", ["restart", "mise-server.service"]); }
+    catch (e) { await writeResult({ ok: true, restarting: false, note: "code updated; restart mise-server manually: " + e.message }); }
   } catch (e) {
     await writeResult({ ok: false, error: e.message });
     process.exit(1);

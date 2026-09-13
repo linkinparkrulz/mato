@@ -12,7 +12,7 @@
 
 ### Who is responsible for the listed nodes?
 
-Not The Dojo Bay: this site is a **directory only**. We do not operate the nodes listed here, we cannot guarantee their uptime, honesty or safety, and we accept no responsibility for them or for any loss of funds or privacy. Status and reliability figures come from automated checks and can be wrong or out of date. Treat every listing as untrusted: verify the pairing details, prefer self-hosting, and connect at your own risk.
+Not mise: this site is a **directory only**. We do not operate the nodes listed here, we cannot guarantee their uptime, honesty or safety, and we accept no responsibility for them or for any loss of funds or privacy. Status and reliability figures come from automated checks and can be wrong or out of date. Treat every listing as untrusted: verify the pairing details, prefer self-hosting, and connect at your own risk.
 
 ### Are there privacy concerns for Dojo seekers?
 

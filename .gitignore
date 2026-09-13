@@ -1,8 +1,8 @@
 node_modules/
 .DS_Store
 *.log
-dojobay_deploy
-dojobay_deploy.pub
+mise_deploy
+mise_deploy.pub
 
 # live backend state (submissions, sessions, apikeys) — never commit
 server/data/

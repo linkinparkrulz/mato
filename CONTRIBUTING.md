@@ -1,4 +1,4 @@
-# Contributing to The Dojo Bay
+# Contributing to mise
 
 Thanks for helping. This file covers development setup, the project's layout,
 how to run the test suites, and the conventions the codebase follows. What
@@ -31,7 +31,7 @@ of browsing the site.
 Make one of your own, separate from any production instance. In `/etc/tor/torrc`:
 
 ```
-HiddenServiceDir /var/lib/tor/dojobay-dev/
+HiddenServiceDir /var/lib/tor/mise-dev/
 HiddenServicePort 80 127.0.0.1:8080
 ```
 
@@ -39,7 +39,7 @@ Restart Tor and read the address it generates:
 
 ```
 sudo systemctl restart tor
-sudo cat /var/lib/tor/dojobay-dev/hostname
+sudo cat /var/lib/tor/mise-dev/hostname
 ```
 
 Browse that address in Tor Browser. Everything below assumes it as your origin.
@@ -122,10 +122,10 @@ scripts/
   apply-update.mjs         # detached helper: swap staged code + restart service
   migrate-seed-to-store.mjs# idempotent seed -> store migration (--dry-run)
   selftest.mjs             # offline tests of the reachability logic
-  pack-source.mjs          # packs the instance's own code into data/dojobay-src.zip
+  pack-source.mjs          # packs the instance's own code into data/mise-src.zip
   serve.mjs                # zero-dependency dev server
   reconcile-system.mjs     # /etc units, nginx site and polkit rule vs what ships here
-  dojobay-server.service, dojobay-update.{service,timer}
+  mise-server.service, mise-update.{service,timer}
 deploy/
   nginx-onion.conf.example # localhost bind, /api/ proxy, /server/ blocked
   polkit-restart.rules.example # lets the service account restart its own unit
@@ -440,7 +440,7 @@ web root that is not in the repo, so an uncommitted script pasted onto the box
 disappears at the next deploy.
 
 ```
-cd /var/www/dojobay/server
+cd /var/www/mise/server
 node audit-signed.mjs          # re-check every stored signed block (read-only)
 node diagnose-signed.mjs       # explain why a block fails (read-only)
 node fix-payload-version.mjs   # dry run; --apply restores a drifted pairing version
@@ -452,7 +452,7 @@ node remove-listing.ts <id>    # dry run; --apply removes a listing and its hist
 check. `fix-payload-version.mjs` writes only `payload.pairing.version`, and only
 where the signed block and the stored payload are otherwise identical; because
 `store.mjs` holds the store in memory as a single writer, `--apply` refuses to
-run while `dojobay-server.service` is active.
+run while `mise-server.service` is active.
 
 ## Brand assets
 

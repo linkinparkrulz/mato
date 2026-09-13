@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Bootstrap a new Dojo Bay from a TRUSTED existing instance, so a fresh
+// Bootstrap a new mise from a TRUSTED existing instance, so a fresh
 // directory is mature the moment it starts: its nodes become approved store
 // records here and their reliability histories carry over.
 //
@@ -32,7 +32,7 @@ const defaultCfg = () => ({
 
 // GET a JSON document from the remote instance over Tor.
 async function torFetchJSON(onionHost, urlPath, cfg, timeoutMs = 30000) {
-  const req = `GET ${urlPath} HTTP/1.0\r\nHost: ${onionHost}\r\nUser-Agent: dojobay-bootstrap\r\nConnection: close\r\n\r\n`;
+  const req = `GET ${urlPath} HTTP/1.0\r\nHost: ${onionHost}\r\nUser-Agent: mise-bootstrap\r\nConnection: close\r\n\r\n`;
   const res = await httpOverTor(cfg, onionHost, 80, req, timeoutMs);
   if (res.status !== 200) throw new Error(`${urlPath}: HTTP ${res.status || "no response"}`);
   return JSON.parse(res.body);

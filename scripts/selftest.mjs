@@ -23,13 +23,13 @@ import path from "node:path";
 // A self-signed certificate for the mock DoH resolver, generated once. openssl
 // is present on the Debian hosts this suite runs on; if it is missing the DoH
 // transport check reports that it was skipped rather than failing the run.
-const DOH_RECORD = "dojobay-domain-v1 pm=PM8T" + "1".repeat(112);
+const DOH_RECORD = "mise-domain-v1 pm=PM8T" + "1".repeat(112);
 const DOH_ANSWER = JSON.stringify({ Status: 0, Answer: [{ type: 16, data: '"' + DOH_RECORD + '"' }] });
 let DOH_TLS = null;
 function dohTlsAvailable() {
   if (DOH_TLS) return true;
   try {
-    const dir = mkdtempSync(path.join(tmpdir(), "dojobay-doh-"));
+    const dir = mkdtempSync(path.join(tmpdir(), "mise-doh-"));
     // All three resolver hostnames, because validation is ON: a certificate
     // naming only one would leave the other two failing the hostname check and
     // the agreement threshold unreachable.
@@ -393,7 +393,7 @@ await check("authenticated probe captures the Electrum endpoint from /support/se
 });
 
 await check("avatar fetched over the (mock) Tor proxy and written as verified PNG", async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), "dojobay-avatar-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "mise-avatar-"));
   try {
     await withProxy("avatar", async (port) => {
       const dest = await fetchAvatar("PMTESTCODE", { proxyHost: "127.0.0.1", proxyPort: port, destDir: dir, timeoutMs: 3000 });
@@ -405,7 +405,7 @@ await check("avatar fetched over the (mock) Tor proxy and written as verified PN
 });
 
 await check("non-PNG avatar response refused, nothing written", async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), "dojobay-avatar-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "mise-avatar-"));
   try {
     await withProxy("avatar-notpng", async (port) => {
       await assert.rejects(
@@ -416,7 +416,7 @@ await check("non-PNG avatar response refused, nothing written", async () => {
 });
 
 await check("source zip packs the codebase and never the instance's own data", async () => {
-  const dir = await mkdtemp(path.join(tmpdir(), "dojobay-src-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "mise-src-"));
   try {
     const r = await packSource({ outDir: dir });
     const buf = await readFile(r.out);
@@ -428,9 +428,9 @@ await check("source zip packs the codebase and never the instance's own data", a
       names.push(buf.subarray(i + 46, i + 46 + nlen).toString("utf8"));
       i += 45 + nlen;
     }
-    assert.ok(names.includes("dojobay/assets/js/app.js"), "app.js present");
-    assert.ok(names.includes("dojobay/data/version.json"), "version marker present");
-    assert.ok(names.includes("dojobay/scripts/pack-source.mjs"), "packer ships itself");
+    assert.ok(names.includes("mise/assets/js/app.js"), "app.js present");
+    assert.ok(names.includes("mise/data/version.json"), "version marker present");
+    assert.ok(names.includes("mise/scripts/pack-source.mjs"), "packer ships itself");
     const forbidden = names.filter((n) =>
       /server\/data|seed\.json|operator\.json|paynym-codes|dojos\.json|history|avatars|node_modules|\.zip$/.test(n));
     assert.deepEqual(forbidden, [], "forbidden entries: " + forbidden.join(", "));
@@ -443,7 +443,7 @@ await check("TXT lookup over Tor: agreement required, unreachable resolvers are 
   // An unreachable proxy must be INCONCLUSIVE, never a failure: a Tor outage
   // must not strip a verified badge from an honest operator. This half needs no
   // TLS, so it always runs.
-  const down = await dns.txtRecordAgreed("_dojobay.example.com", () => true,
+  const down = await dns.txtRecordAgreed("_mise.example.com", () => true,
     { proxyHost: "127.0.0.1", proxyPort: 1, timeoutMs: 400 });
   assert.ok(!down.ok && down.inconclusive, "unreachable resolvers are inconclusive: " + JSON.stringify(down));
   assert.equal(down.agreed, 0);
@@ -461,16 +461,16 @@ await check("TXT lookup over Tor: agreement required, unreachable resolvers are 
   // connection made while it was set.
   await withProxy("doh", async (port) => {
       const cfg = { proxyHost: "127.0.0.1", proxyPort: port, timeoutMs: 5000, tlsCa: DOH_TLS.cert };
-      const found = await dns.lookupTxt("_dojobay.example.com", cfg);
+      const found = await dns.lookupTxt("_mise.example.com", cfg);
       assert.ok(found.records.includes(DOH_RECORD),
         "the TXT record is read back: " + JSON.stringify(found.records) + " errors=" + JSON.stringify(found.errors));
       assert.ok(found.answered >= dns.DOH_AGREEMENT, "enough resolvers answered, got " + found.answered);
 
-      const agreed = await dns.txtRecordAgreed("_dojobay.example.com", (r) => r === DOH_RECORD, cfg);
+      const agreed = await dns.txtRecordAgreed("_mise.example.com", (r) => r === DOH_RECORD, cfg);
       assert.ok(agreed.ok && agreed.agreed >= dns.DOH_AGREEMENT, "agreement reached: " + JSON.stringify(agreed));
 
       // present but not matching is a definite failure, not "cannot tell"
-      const missing = await dns.txtRecordAgreed("_dojobay.example.com", () => false, cfg);
+      const missing = await dns.txtRecordAgreed("_mise.example.com", () => false, cfg);
       assert.ok(!missing.ok && !missing.inconclusive, "a non-matching record fails rather than being inconclusive");
       assert.ok(/not matching/.test(missing.error), "and says the record is present but not matching: " + missing.error);
   });
@@ -516,8 +516,8 @@ await check("uninstall: torrc surgery is reversible and spares other services", 
   // must be surgical: an uninstaller that rewrote the file would take theirs.
   const before = "SocksPort 9050\n\n# my other hidden service\n"
     + "HiddenServiceDir /var/lib/tor/other\nHiddenServicePort 80 127.0.0.1:9000\n";
-  const merged = mergeTorrc(before, "/var/lib/tor/dojobay");
-  assert.ok(merged.includes("/var/lib/tor/dojobay"), "the block went in");
+  const merged = mergeTorrc(before, "/var/lib/tor/mise");
+  assert.ok(merged.includes("/var/lib/tor/mise"), "the block went in");
 
   const back = stripTorrc(merged);
   assert.ok(back.removed, "and is reported as removed");
@@ -576,7 +576,7 @@ await check("the launcher finds node itself and refuses an old one clearly", asy
   // ever completed an install through it.
   assert.ok(!/desktop/i.test(sh), "the launcher no longer mentions a desktop entry");
   for (const f of ["pack-source.mjs", "../server/self-update.mjs"]) {
-    assert.ok(!/dojobay-install\.desktop/.test(readFileSync(new URL(f, import.meta.url).pathname, "utf8")),
+    assert.ok(!/mise-install\.desktop/.test(readFileSync(new URL(f, import.meta.url).pathname, "utf8")),
       `${f} does not still list the removed desktop entry`);
   }
 });
@@ -639,7 +639,7 @@ await check("the sequential UI offers numbered choices, and takes numbers or nam
 // seventeen hours that way, and fixing the cause did not restart it: the timer
 // only recovered when the service was started by hand.
 await check("the update timer schedules from the clock, so failures cannot strand it", async () => {
-  const unit = readFileSync(new URL("./dojobay-update.timer", import.meta.url).pathname, "utf8");
+  const unit = readFileSync(new URL("./mise-update.timer", import.meta.url).pathname, "utf8");
   assert.ok(/^OnCalendar=/m.test(unit), "it has a calendar schedule");
   assert.ok(!/^OnUnitActiveSec=/m.test(unit),
     "and nothing that hangs the next run off how the last one ended");
@@ -931,7 +931,7 @@ await check("the torii is symmetrical, whole, and drawn in ones and zeroes", asy
 });
 
 // Both units shipped naming an account that was true of one machine and of
-// nobody else's: the backend said deploy, the updater said dojobay, neither
+// nobody else's: the backend said deploy, the updater said mise, neither
 // renderer touched the line and the installer created neither. Both services
 // then failed 217/USER on a fresh box, silently, because nginx serves the
 // directory as static files whether or not the backend is alive. The updater
@@ -947,15 +947,15 @@ await check("the units name an account the installer actually creates", async ()
   // rewrites anything: the first version of this check did exactly that and
   // survived having the rewrite deleted.
   const OTHER = "svcacct";
-  const srvTpl = readFileSync(new URL("./dojobay-server.service", import.meta.url).pathname, "utf8");
-  const updTpl = readFileSync(new URL("./dojobay-update.service", import.meta.url).pathname, "utf8");
+  const srvTpl = readFileSync(new URL("./mise-server.service", import.meta.url).pathname, "utf8");
+  const updTpl = readFileSync(new URL("./mise-update.service", import.meta.url).pathname, "utf8");
   const srv = renderServerUnit(srvTpl, { webRoot: "/srv/db", baseUrl: "http://x.onion", adminCode: "PM8Tx", user: OTHER });
   const upd = renderUpdateUnit(updTpl, { webRoot: "/srv/db", user: OTHER });
 
   for (const [name, unit] of [["server", srv], ["updater", upd]]) {
     assert.ok(new RegExp(`^User=${OTHER}$`, "m").test(unit), `${name} runs as the account it was given`);
     assert.ok(new RegExp(`^Group=${OTHER}$`, "m").test(unit), `${name} group matches`);
-    assert.ok(!/^User=(deploy|dojobay)$/m.test(unit),
+    assert.ok(!/^User=(deploy|mise)$/m.test(unit),
       `${name} does not keep the account its template was written for`);
     assert.ok(/^WorkingDirectory=\/srv\/db/m.test(unit), `${name} points at the chosen web root`);
   }
@@ -990,7 +990,7 @@ await check("the restart rule grants exactly one verb on one unit to the service
   const OTHER = "svcacct";
   const rule = renderPolkitRule(tpl, { user: OTHER });
   assert.ok(new RegExp(`subject\\.user == "${OTHER}"`).test(rule), "the rule names the account it was given");
-  assert.ok(!/subject\.user == "dojobay"/.test(rule), "and not the one its template was written for");
+  assert.ok(!/subject\.user == "mise"/.test(rule), "and not the one its template was written for");
   assert.ok(renderPolkitRule(tpl).includes(`subject.user == "${SERVICE_USER}"`),
     "the default is the account the installer creates");
 
@@ -998,7 +998,7 @@ await check("the restart rule grants exactly one verb on one unit to the service
   // mask as well as restart, and one that omitted the unit would grant them on
   // every service on the machine.
   assert.ok(rule.includes(`action.id == "${SYSTEMD_MANAGE_UNITS}"`), "one action");
-  assert.ok(/action\.lookup\("unit"\) == "dojobay-server\.service"/.test(rule), "one unit");
+  assert.ok(/action\.lookup\("unit"\) == "mise-server\.service"/.test(rule), "one unit");
   assert.ok(/action\.lookup\("verb"\) == "restart"/.test(rule), "one verb");
   assert.ok(!/polkit\.Result\.(NO|AUTH|NOT_AUTHORIZED)/.test(rule),
     "and it only ever returns YES, so it cannot weaken the distribution default");
@@ -1043,17 +1043,17 @@ await check("the restart rule grants exactly one verb on one unit to the service
 await check("reconcile carries an operator's own settings forward rather than reporting them as drift", async () => {
   const lib = await import("./installer-lib.mjs");
   const { renderServerUnit, renderUpdateUnit, recoverUnitValues, planSystemFile } = lib;
-  const tpl = readFileSync(new URL("./dojobay-server.service", import.meta.url).pathname, "utf8");
+  const tpl = readFileSync(new URL("./mise-server.service", import.meta.url).pathname, "utf8");
 
   // The live VPS's real shape: an account and a web root that are not the
   // installer's defaults, which is the case the recovery exists for.
-  const v = { webRoot: "/var/www/dojobay", user: "deploy",
+  const v = { webRoot: "/var/www/mise", user: "deploy",
     baseUrl: "http://" + "d".repeat(56) + ".onion", adminCode: "PM8" + "x".repeat(113) };
   const installed = renderServerUnit(tpl, v);
 
   const back = recoverUnitValues(installed);
   assert.strictEqual(back.user, "deploy", "the account is read back from User=");
-  assert.strictEqual(back.webRoot, "/var/www/dojobay", "and the web root from ExecStart, not guessed");
+  assert.strictEqual(back.webRoot, "/var/www/mise", "and the web root from ExecStart, not guessed");
   assert.strictEqual(back.baseUrl, v.baseUrl, "the onion is read back exactly");
   assert.strictEqual(back.adminCode, v.adminCode, "and so is the admin code");
 
@@ -1065,8 +1065,8 @@ await check("reconcile carries an operator's own settings forward rather than re
 
   // A machine that predates the installer still has to be readable, since that
   // is the one this was written for.
-  const updTpl = readFileSync(new URL("./dojobay-update.service", import.meta.url).pathname, "utf8");
-  assert.strictEqual(recoverUnitValues(renderUpdateUnit(updTpl, v)).webRoot, "/var/www/dojobay",
+  const updTpl = readFileSync(new URL("./mise-update.service", import.meta.url).pathname, "utf8");
+  assert.strictEqual(recoverUnitValues(renderUpdateUnit(updTpl, v)).webRoot, "/var/www/mise",
     "the updater unit's web root comes back too, though its WorkingDirectory differs from the backend's");
 
   // Absent is a third answer. The polkit rule is legitimately missing on any
@@ -1095,7 +1095,7 @@ await check("the reconciler knows every system file the installer writes", async
 
   // Compared exactly, against the paths the reconciler declares, not by
   // searching its source for the string. A substring search passed when the
-  // nginx entry was renamed to /etc/nginx/sites-available/dojobay-renamed,
+  // nginx entry was renamed to /etc/nginx/sites-available/mise-renamed,
   // because the old path is a prefix of the new one: the test agreed that a
   // file was covered while the tool no longer touched it.
   const covered = new Set([...rec.matchAll(/installed: "(\/etc\/[^"]+)"/g)].map((m) => m[1]));
@@ -1115,7 +1115,7 @@ await check("the reconciler knows every system file the installer writes", async
   // Kept out of the unit directory. systemd ignores a file without a unit
   // suffix, so a .bak beside a unit is inert, but they accumulate a set per run
   // in a directory an operator reads when something is already wrong.
-  assert.ok(/\/var\/backups\/dojobay\/system-/.test(rec) && !/\$\{dest\}\.\$\{stamp\}\.bak/.test(rec),
+  assert.ok(/\/var\/backups\/mise\/system-/.test(rec) && !/\$\{dest\}\.\$\{stamp\}\.bak/.test(rec),
     "and kept in /var/backups rather than beside the units");
 
   // A timer whose file changed keeps the old schedule until it is restarted,
@@ -1126,7 +1126,7 @@ await check("the reconciler knows every system file the installer writes", async
     "a rewritten timer is restarted rather than left for somebody to remember");
   assert.ok(/NextElapseUSecRealtime/.test(rec),
     "and its next elapse is read back, because a timer with none looks enabled and never fires");
-  assert.ok(!/restart it yourself when it suits you[\s\S]{0,80}dojobay-server\.service/.test(rec)
+  assert.ok(!/restart it yourself when it suits you[\s\S]{0,80}mise-server\.service/.test(rec)
     && /services\.join\(" "\)/.test(rec),
     "units needing a restart are named individually, not assumed to be the backend alone");
 });
@@ -1192,7 +1192,7 @@ await check("the anchor signature must carry a BIP47 line", async () => {
 });
 
 // Both units shipped naming an account that was true of one machine and of
-// nobody else's: the backend said deploy, the updater said dojobay, neither
+// nobody else's: the backend said deploy, the updater said mise, neither
 // renderer touched the line and the installer created neither. Both services
 // then failed 217/USER on a fresh box, silently, because nginx serves the
 // directory as static files whether or not the backend is alive. The updater
@@ -1202,9 +1202,9 @@ await check("the units name an account the installer actually creates", async ()
   const lib = await import("./installer-lib.mjs");
   const { SERVICE_USER, renderServerUnit, renderUpdateUnit } = lib;
 
-  const srv = renderServerUnit(readFileSync(new URL("./dojobay-server.service", import.meta.url).pathname, "utf8"),
+  const srv = renderServerUnit(readFileSync(new URL("./mise-server.service", import.meta.url).pathname, "utf8"),
     { webRoot: "/srv/db", baseUrl: "http://x.onion", adminCode: "PM8Tx" });
-  const upd = renderUpdateUnit(readFileSync(new URL("./dojobay-update.service", import.meta.url).pathname, "utf8"),
+  const upd = renderUpdateUnit(readFileSync(new URL("./mise-update.service", import.meta.url).pathname, "utf8"),
     { webRoot: "/srv/db" });
 
   for (const [name, unit] of [["server", srv], ["updater", upd]]) {
@@ -1269,10 +1269,10 @@ await check("installer library: validators, torrc idempotence, unit rendering", 
   assert.equal(lib.operatorMessage("x".repeat(56) + ".onion", "PM8Tabc"),
     "http://" + "x".repeat(56) + ".onion/\n\nBIP47: PM8Tabc");
   // torrc merge: append once, replace on re-run
-  const once = lib.mergeTorrc("SocksPort 9050\n", "/var/lib/tor/dojobay");
+  const once = lib.mergeTorrc("SocksPort 9050\n", "/var/lib/tor/mise");
   const twice = lib.mergeTorrc(once, "/var/lib/tor/other");
-  assert.ok(once.includes("HiddenServiceDir /var/lib/tor/dojobay"));
-  assert.ok(twice.includes("/var/lib/tor/other") && !twice.includes("/var/lib/tor/dojobay"));
+  assert.ok(once.includes("HiddenServiceDir /var/lib/tor/mise"));
+  assert.ok(twice.includes("/var/lib/tor/other") && !twice.includes("/var/lib/tor/mise"));
   assert.equal((twice.match(/HiddenServiceDir/g) || []).length, 1, "managed block replaced, not duplicated");
   const unit = lib.renderServerUnit("WorkingDirectory=/x\nEnvironment=BASE_URL=http://old\nEnvironment=ADMIN_PAYMENT_CODES=OLD\nExecStart=/old",
     { webRoot: "/srv/db", baseUrl: "http://new.onion", adminCode: "PM8Tnew" });
@@ -1309,7 +1309,7 @@ await check("TUI core: key decoding, form navigation/validation, frame rendering
   const frame = renderForm(formInit([{ key: "a", label: "Payment code", type: "text", hint: "PM8T…" }]),
     { width: 80, stepLabel: "step 3 of 8", title: "Your identity" });
   const plain = frame.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
-  assert.ok(plain.includes("THE DOJO BAY") && plain.includes("Your identity") && plain.includes("Payment code") && plain.includes("Continue"));
+  assert.ok(plain.includes("MISE") && plain.includes("Your identity") && plain.includes("Payment code") && plain.includes("Continue"));
   assert.ok(plain.split("\r\n").every((l) => l.length <= 80), "no line exceeds the terminal width");
   const prog = renderProgress({ width: 80, stepLabel: "s", title: "probing", log: ["connecting…"], spinnerIndex: 3 })
     .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
@@ -1319,14 +1319,14 @@ await check("TUI core: key decoding, form navigation/validation, frame rendering
 await check("source zip round-trips through self-update; staging works; zip-slip rejected", async () => {
   const { packSource } = await import("./pack-source.mjs");
   const { unzip, applyUpdate } = await import("../server/self-update.mjs");
-  const dir = await mkdtemp(path.join(tmpdir(), "dojobay-rt-"));
+  const dir = await mkdtemp(path.join(tmpdir(), "mise-rt-"));
   try {
     const r = await packSource({ outDir: dir });
     const buf = await readFile(r.out);
     const entries = unzip(buf);
     const names = entries.map((e) => e.name);
-    assert.ok(names.includes("dojobay/server/index.mjs") && names.includes("dojobay/assets/js/app.js"), "core files present");
-    const pkg = entries.find((e) => e.name === "dojobay/package.json");
+    assert.ok(names.includes("mise/server/index.mjs") && names.includes("mise/assets/js/app.js"), "core files present");
+    const pkg = entries.find((e) => e.name === "mise/package.json");
     const onDisk = await readFile(path.join(process.cwd(), "package.json"));
     assert.ok(pkg && Buffer.compare(pkg.data, onDisk) === 0, "inflated file matches source byte-for-byte");
 
@@ -1335,7 +1335,7 @@ await check("source zip round-trips through self-update; staging works; zip-slip
     // with no code in it is not a scenario that happens and the backup guard
     // now refuses it. Instance data goes in too, so the filter can be observed
     // doing its job rather than merely inspected in the source.
-    const webRoot = await mkdtemp(path.join(tmpdir(), "dojobay-web-"));
+    const webRoot = await mkdtemp(path.join(tmpdir(), "mise-web-"));
     await mkdir(path.join(webRoot, "server", "data"), { recursive: true });
     await mkdir(path.join(webRoot, "server", "node_modules", "left-pad"), { recursive: true });
     await mkdir(path.join(webRoot, "assets", "js"), { recursive: true });
@@ -1358,7 +1358,7 @@ await check("source zip round-trips through self-update; staging works; zip-slip
 
     // zip-slip: an entry escaping the top folder must be refused
     const { deflateRawSync } = await import("node:zlib");
-    const evil = makeMiniZip("dojobay/../evil.txt", Buffer.from("x"));
+    const evil = makeMiniZip("mise/../evil.txt", Buffer.from("x"));
     await assert.rejects(applyUpdate({ bytes: evil, webRoot: "/tmp", spawnHelper: false, log: () => {} }), /unsafe path|does not look like/);
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
@@ -1373,14 +1373,14 @@ await check("source zip round-trips through self-update; staging works; zip-slip
 // was only ever shown archives of its own shape. This fixture has GitHub's.
 await check("an archive with directory entries unpacks, GitHub's shape included", async () => {
   const { applyUpdate } = await import("../server/self-update.mjs");
-  const dir = mkdtempSync("/tmp/dojobay-ghzip-");
+  const dir = mkdtempSync("/tmp/mise-ghzip-");
   try {
     const zip = concatZip([
-      ["Dojobay-dojobay-abc1234/", Buffer.alloc(0)],            // the folder itself
-      ["Dojobay-dojobay-abc1234/server/", Buffer.alloc(0)],
-      ["Dojobay-dojobay-abc1234/server/index.mjs", Buffer.from("// new")],
-      ["Dojobay-dojobay-abc1234/assets/js/", Buffer.alloc(0)],
-      ["Dojobay-dojobay-abc1234/assets/js/app.js", Buffer.from("// new")],
+      ["mise-mise-abc1234/", Buffer.alloc(0)],            // the folder itself
+      ["mise-mise-abc1234/server/", Buffer.alloc(0)],
+      ["mise-mise-abc1234/server/index.mjs", Buffer.from("// new")],
+      ["mise-mise-abc1234/assets/js/", Buffer.alloc(0)],
+      ["mise-mise-abc1234/assets/js/app.js", Buffer.from("// new")],
     ]);
     mkdirSync(dir + "/server", { recursive: true });
     mkdirSync(dir + "/assets", { recursive: true });
@@ -1404,19 +1404,19 @@ await check("an archive with directory entries unpacks, GitHub's shape included"
 // for the same reason this now does.
 await check("an archive cannot overwrite instance data, whatever it contains", async () => {
   const { applyUpdate } = await import("../server/self-update.mjs");
-  const dir = mkdtempSync("/tmp/dojobay-instdata-");
+  const dir = mkdtempSync("/tmp/mise-instdata-");
   try {
     // Exactly the files a zipball of this repository carries under data/.
     const zip = concatZip([
-      ["dojobay/server/index.mjs", Buffer.from("// new")],
-      ["dojobay/assets/js/app.js", Buffer.from("// new")],
-      ["dojobay/data/dojos.json", Buffer.from('{"nodes":[]}')],
-      ["dojobay/data/history.json", Buffer.from("{}")],
-      ["dojobay/data/history-daily.json", Buffer.from("{}")],
-      ["dojobay/data/seed.json", Buffer.from('"THEIRS"')],
-      ["dojobay/data/operator.json", Buffer.from('"THEIRS"')],
-      ["dojobay/data/paynym-codes.json", Buffer.from("{}")],
-      ["dojobay/data/version.json", Buffer.from('{"commit":"dev"}')],
+      ["mise/server/index.mjs", Buffer.from("// new")],
+      ["mise/assets/js/app.js", Buffer.from("// new")],
+      ["mise/data/dojos.json", Buffer.from('{"nodes":[]}')],
+      ["mise/data/history.json", Buffer.from("{}")],
+      ["mise/data/history-daily.json", Buffer.from("{}")],
+      ["mise/data/seed.json", Buffer.from('"THEIRS"')],
+      ["mise/data/operator.json", Buffer.from('"THEIRS"')],
+      ["mise/data/paynym-codes.json", Buffer.from("{}")],
+      ["mise/data/version.json", Buffer.from('{"commit":"dev"}')],
     ]);
     mkdirSync(dir + "/server", { recursive: true });
     mkdirSync(dir + "/assets", { recursive: true });
@@ -1501,13 +1501,13 @@ await check("no two writers can take the same temporary file", async () => {
 // --now fires a catch-up run immediately, which is the collision above.
 await check("the installer does not race its own first probe cycle", async () => {
   const src = readFileSync(new URL("./install.mjs", import.meta.url).pathname, "utf8");
-  const enable = src.indexOf('["enable", "dojobay-update.timer"]');
+  const enable = src.indexOf('["enable", "mise-update.timer"]');
   const cycle = src.indexOf('await run("sudo", ["-u", SERVICE_USER, "node"');
-  const start = src.indexOf('["start", "dojobay-update.timer"]');
+  const start = src.indexOf('["start", "mise-update.timer"]');
   assert.ok(enable !== -1 && start !== -1, "the timer is enabled and started separately");
   assert.ok(enable < cycle && cycle < start,
     "enabled for boot, then the first cycle runs, then the timer starts");
-  assert.ok(!/"enable", "--now"[^\]]*dojobay-update\.timer/.test(src),
+  assert.ok(!/"enable", "--now"[^\]]*mise-update\.timer/.test(src),
     "and it is never enabled with --now, which would fire a run at once");
   assert.ok(start < src.indexOf("NextElapseUSecRealtime"),
     "the armed check still comes last, or it would read a timer that had not started");
@@ -1560,11 +1560,11 @@ await check("the swap writes the version it fetched, not the one in the archive"
 // Traversal is still refused, and a slash on the end is not a way around it.
 await check("a directory entry cannot smuggle a path traversal", async () => {
   const { applyUpdate } = await import("../server/self-update.mjs");
-  for (const name of ["dojobay/../evil/", "dojobay/../evil.txt"]) {
+  for (const name of ["mise/../evil/", "mise/../evil.txt"]) {
     const zip = concatZip([
       [name, Buffer.alloc(0)],
-      ["dojobay/server/index.mjs", Buffer.from("x")],
-      ["dojobay/assets/js/app.js", Buffer.from("x")],
+      ["mise/server/index.mjs", Buffer.from("x")],
+      ["mise/assets/js/app.js", Buffer.from("x")],
     ]);
     await assert.rejects(applyUpdate({ bytes: zip, webRoot: "/tmp", spawnHelper: false, log: () => {} }),
       /unsafe path/, `${name} is refused whether or not it ends in a slash`);
@@ -1578,10 +1578,10 @@ await check("a directory entry cannot smuggle a path traversal", async () => {
 await check("an archive that inflates past the budget is refused", async () => {
   const { unzip, MAX_INFLATED_BYTES } = await import("../server/self-update.mjs");
   const raw = Buffer.alloc(MAX_INFLATED_BYTES * 2, 0);
-  const bomb = makeDeflatedZip("dojobay/big.bin", raw);
+  const bomb = makeDeflatedZip("mise/big.bin", raw);
   assert.ok(bomb.length < 1024 * 1024,
     `the bomb must be small to be the case in question, it is ${bomb.length} bytes`);
-  assert.throws(() => unzip(bomb), /inflates past the \d+ byte limit at entry dojobay\/big\.bin/,
+  assert.throws(() => unzip(bomb), /inflates past the \d+ byte limit at entry mise\/big\.bin/,
     "refused, naming the limit and the entry that hit it");
 });
 
@@ -1590,8 +1590,8 @@ await check("the budget is spent across the archive, not per entry", async () =>
   // Two thirds of the budget, twice. Neither entry is individually oversized,
   // so a per-entry check would pass both and let the archive through at 133%.
   const chunk = Buffer.alloc(Math.floor(MAX_INFLATED_BYTES * 0.66), 0);
-  const two = concatZip([["dojobay/a.bin", chunk], ["dojobay/b.bin", chunk]]);
-  assert.throws(() => unzip(two), /inflates past the \d+ byte limit at entry dojobay\/b\.bin/,
+  const two = concatZip([["mise/a.bin", chunk], ["mise/b.bin", chunk]]);
+  assert.throws(() => unzip(two), /inflates past the \d+ byte limit at entry mise\/b\.bin/,
     "the second entry is where the shared allowance runs out");
 });
 
@@ -1599,7 +1599,7 @@ await check("a hostile entry count is refused before anything is inflated", asyn
   const { unzip, MAX_ENTRIES } = await import("../server/self-update.mjs");
   // Zero-length entries cost no memory at all, so the byte budget never fires;
   // what they cost is a file each in staging.
-  const many = makeMiniZip("dojobay/x.txt", Buffer.alloc(0));
+  const many = makeMiniZip("mise/x.txt", Buffer.alloc(0));
   many.writeUInt16LE(MAX_ENTRIES + 1, many.length - 22 + 10);
   assert.throws(() => unzip(many), new RegExp(`declares ${MAX_ENTRIES + 1} entries`),
     "refused on the declared count, before the entry loop runs");
@@ -1607,9 +1607,9 @@ await check("a hostile entry count is refused before anything is inflated", asyn
 
 await check("a bomb aborts the update before staging or backup is touched", async () => {
   const { applyUpdate, MAX_INFLATED_BYTES } = await import("../server/self-update.mjs");
-  const dir = mkdtempSync("/tmp/dojobay-bomb-");
+  const dir = mkdtempSync("/tmp/mise-bomb-");
   try {
-    const bomb = makeDeflatedZip("dojobay/big.bin", Buffer.alloc(MAX_INFLATED_BYTES * 2, 0));
+    const bomb = makeDeflatedZip("mise/big.bin", Buffer.alloc(MAX_INFLATED_BYTES * 2, 0));
     await assert.rejects(applyUpdate({ bytes: bomb, webRoot: dir, spawnHelper: false, log: () => {} }),
       /inflates past/);
     // unzip runs first in applyUpdate, so nothing should exist yet. This is the
@@ -1624,7 +1624,7 @@ await check("a bomb aborts the update before staging or backup is touched", asyn
 
 await check("the real source tree sits well inside the budget", async () => {
   const { unzip, MAX_INFLATED_BYTES } = await import("../server/self-update.mjs");
-  const zipPath = new URL("../data/dojobay-src.zip", import.meta.url).pathname;
+  const zipPath = new URL("../data/mise-src.zip", import.meta.url).pathname;
   execFileSync(process.execPath, [new URL("./pack-source.mjs", import.meta.url).pathname], { stdio: "ignore" });
   const files = unzip(readFileSync(zipPath));
   const total = files.reduce((a, f) => a + f.data.length, 0);
@@ -1674,14 +1674,14 @@ await check("the nginx example refuses to serve the updater's working directorie
   // and the published source zip must still be reachable: it is how a peer
   // fetches code during a federated self-update, and how anyone reads what an
   // instance is running.
-  assert.ok(!/location[^\n]*dojobay-src\.zip[^\n]*404/.test(conf),
-    "data/dojobay-src.zip stays served");
+  assert.ok(!/location[^\n]*mise-src\.zip[^\n]*404/.test(conf),
+    "data/mise-src.zip stays served");
 });
 
 await check("the backup filter excludes by path segment, not by substring", async () => {
   const src = readFileSync(new URL("../server/self-update.mjs", import.meta.url).pathname, "utf8");
   assert.ok(!/p\.includes\("node_modules"\)/.test(src) && !/includes\(path\.sep \+ "data"/.test(src),
-    "the substring test is gone: it excluded everything at a web root such as /srv/data/dojobay");
+    "the substring test is gone: it excluded everything at a web root such as /srv/data/mise");
   assert.ok(/path\.relative\(webRoot, p\)/.test(src) && /split\(path\.sep\)\.some/.test(src),
     "exclusion is decided on the path relative to the web root, a segment at a time");
 });
@@ -1691,14 +1691,14 @@ await check("an update refuses to proceed when the backup came out empty", async
   // The failure this guards is silent by construction: the copy loop swallows
   // per-entry errors, so a filter that excluded everything produced no backup
   // and no complaint, and the swap went ahead over irreplaceable code.
-  const dir = mkdtempSync("/tmp/dojobay-nobackup-");
+  const dir = mkdtempSync("/tmp/mise-nobackup-");
   try {
     // The archive must be a plausible source tree, or the shape check refuses
     // it first and this proves nothing. It did exactly that on the first
     // attempt: the assertion passed while the guard was removed.
     const zip = concatZip([
-      ["dojobay/server/index.mjs", Buffer.from("// new")],
-      ["dojobay/assets/js/app.js", Buffer.from("// new")],
+      ["mise/server/index.mjs", Buffer.from("// new")],
+      ["mise/assets/js/app.js", Buffer.from("// new")],
     ]);
     // An empty web root, so there is nothing to back up and the count is zero.
     await assert.rejects(applyUpdate({ bytes: zip, webRoot: dir, spawnHelper: false, log: () => {} }),

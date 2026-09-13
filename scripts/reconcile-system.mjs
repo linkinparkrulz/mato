@@ -56,22 +56,22 @@ const at = (p) => (ROOT_PREFIX ? path.join(ROOT_PREFIX, p) : p);
 const FILES = [
   {
     name: "backend unit",
-    template: "scripts/dojobay-server.service",
-    installed: "/etc/systemd/system/dojobay-server.service",
+    template: "scripts/mise-server.service",
+    installed: "/etc/systemd/system/mise-server.service",
     render: (tpl, v) => renderServerUnit(tpl, v),
     after: "systemd",
   },
   {
     name: "updater unit",
-    template: "scripts/dojobay-update.service",
-    installed: "/etc/systemd/system/dojobay-update.service",
+    template: "scripts/mise-update.service",
+    installed: "/etc/systemd/system/mise-update.service",
     render: (tpl, v) => renderUpdateUnit(tpl, v),
     after: "systemd",
   },
   {
     name: "updater timer",
-    template: "scripts/dojobay-update.timer",
-    installed: "/etc/systemd/system/dojobay-update.timer",
+    template: "scripts/mise-update.timer",
+    installed: "/etc/systemd/system/mise-update.timer",
     // Copied verbatim by the installer, so there is nothing to substitute.
     render: (tpl) => tpl,
     after: "systemd",
@@ -79,7 +79,7 @@ const FILES = [
   {
     name: "nginx site",
     template: "deploy/nginx-onion.conf.example",
-    installed: "/etc/nginx/sites-available/dojobay",
+    installed: "/etc/nginx/sites-available/mise",
     render: (tpl, v) => renderNginx(tpl, v),
     after: "nginx",
   },
@@ -173,7 +173,7 @@ async function main() {
   if (!backend) {
     console.log("No backend unit at " + FILES[0].installed + ".");
     console.log("Nothing to reconcile: this machine has not been installed, or the unit lives elsewhere.");
-    console.log("  systemctl show dojobay-server.service -p FragmentPath --value");
+    console.log("  systemctl show mise-server.service -p FragmentPath --value");
     process.exit(0);
   }
   const values = recoverUnitValues(backend);
@@ -241,7 +241,7 @@ async function main() {
   // pressure. /var/backups is where a Debian or Ubuntu system already keeps
   // this kind of thing.
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const backupDir = at(`/var/backups/dojobay/system-${stamp}`);
+  const backupDir = at(`/var/backups/mise/system-${stamp}`);
   await mkdir(backupDir, { recursive: true });
   const kinds = new Set();
   const units = new Set();
@@ -318,8 +318,8 @@ async function main() {
     }
     // The updater's own service unit needs no restart: it is oneshot and the
     // timer starts a fresh one each cycle, which will pick up the new file.
-    if ([...units].some((u) => u === "dojobay-update.service")) {
-      console.log("  (dojobay-update.service is oneshot; its next run uses the new file)");
+    if ([...units].some((u) => u === "mise-update.service")) {
+      console.log("  (mise-update.service is oneshot; its next run uses the new file)");
     }
   }
   if (kinds.has("nginx")) {

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The Dojo Bay — self-service submission backend (step 2 feature).
+// mise — self-service submission backend (step 2 feature).
 //
 // Auth47 login, then a gated "manage my Dojo" API. Two hard gates on any create
 // or pairing-changing edit:
@@ -107,7 +107,7 @@ function parseCookies(req: IncomingMessage): Record<string, string> {
   return out;
 }
 async function sessionFrom(req) {
-  const sid = parseCookies(req).dojobay_sid;
+  const sid = parseCookies(req).mise_sid;
   return sid ? await store.getSession(sid) : null;
 }
 function networkOf(rec) { return rec === "testnet" ? "testnet" : "bitcoin"; }
@@ -258,7 +258,7 @@ route("GET", /^\/api\/auth47\/poll$/, async (req, res) => {
   const claim = await store.takeNonce("claimed:" + nonce);
   if (!claim) return json(res, 200, { authenticated: false });
   res.setHeader("Set-Cookie",
-    `dojobay_sid=${claim.sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(SESSION_TTL / 1000)}`);
+    `mise_sid=${claim.sid}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${Math.floor(SESSION_TTL / 1000)}`);
   json(res, 200, { authenticated: true });
 });
 
@@ -355,9 +355,9 @@ route("POST", /^\/api\/admin\/remove$/, async (req, res) => {
 
 // 5) logout
 route("POST", /^\/api\/logout$/, async (req, res) => {
-  const sid = parseCookies(req).dojobay_sid;
+  const sid = parseCookies(req).mise_sid;
   if (sid) await store.dropSession(sid);
-  res.setHeader("Set-Cookie", "dojobay_sid=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
+  res.setHeader("Set-Cookie", "mise_sid=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0");
   json(res, 200, { ok: true });
 });
 
@@ -690,7 +690,7 @@ route("POST", /^\/api\/admin\/update$/, async (req, res) => {
   json(res, 202, { started: true, id });
 });
 
-// 12b) admin: import listings from another Dojo Bay.
+// 12b) admin: import listings from another mise.
 //
 // The same operation the installer performs at setup, offered to a running
 // instance. It is a background job for the same reason the self-update is: the
@@ -764,7 +764,7 @@ route("POST", /^\/api\/admin\/import$/, async (req, res) => {
       // that needs no privilege.
       if (job.apply && (job.result?.imported ?? 0) > 0) {
         job.phase = "probing";
-        const running = await execFileP("systemctl", ["is-active", "--quiet", "dojobay-update.service"])
+        const running = await execFileP("systemctl", ["is-active", "--quiet", "mise-update.service"])
           .then(() => true, () => false);
         if (running) {
           log("a probe cycle is already running; the imported nodes will get their status from it");
@@ -848,7 +848,7 @@ route("GET", /^\/api\/admin\/updates$/, async (req, res) => {
   try {
     // The account this process runs as, so the panel can print a command that
     // works rather than a placeholder. The two machines differ: one built by the
-    // installer runs as dojobay, one set up by hand may not.
+    // installer runs as mise, one set up by hand may not.
     const result = { available: true,
       serviceUser: (() => { try { return osMod.userInfo().username; } catch { return null; } })(),
       // Absolute, because the remedy the panel prints used to be a relative
@@ -856,7 +856,7 @@ route("GET", /^\/api\/admin\/updates$/, async (req, res) => {
       // deploy/polkit-restart.rules.example" has to work out both the directory
       // and that .example is the literal filename rather than a placeholder.
       ruleSource: path.join(ROOT, "deploy/polkit-restart.rules.example"),
-      rulePath: "/etc/polkit-1/rules.d/49-dojobay-restart.rules",
+      rulePath: "/etc/polkit-1/rules.d/49-mise-restart.rules",
       ...(await checkUpdates({ cfg: { proxyHost: PROBE_CFG.proxyHost, proxyPort: PROBE_CFG.proxyPort } })) };
     UPDATES_CACHE = { at: Date.now(), result };
     json(res, 200, result);
@@ -948,7 +948,7 @@ route("POST", /^\/api\/domain\/prepare$/, async (req, res) => {
     punycode: !!norm.punycode,
     // Two forms on purpose: most panels (Namecheap, Cloudflare, Route 53) want
     // the label relative to the zone, a few want the fully-qualified name.
-    // Handing over only the latter produces _dojobay.example.com.example.com.
+    // Handing over only the latter produces _mise.example.com.example.com.
     txt_host: txtHost(),
     txt_name: txtName(norm.domain),
     txt_value: txtValue(s.paymentCode),
@@ -1134,6 +1134,6 @@ const server = http.createServer(async (req, res) => {
     json(res, 500, { error: "server error", detail: e.message });
   }
 });
-server.listen(PORT, "127.0.0.1", () => console.log(`dojobay backend on 127.0.0.1:${PORT} (base ${BASE_URL})`));
+server.listen(PORT, "127.0.0.1", () => console.log(`mise backend on 127.0.0.1:${PORT} (base ${BASE_URL})`));
 
 export { server, routes };

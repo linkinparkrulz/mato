@@ -1,10 +1,10 @@
-# Sample nginx server block for The Dojo Bay.
-# Copy to /etc/nginx/sites-available/dojobay, adjust server_name and root,
-# then: ln -s ../sites-available/dojobay /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx
+# Sample nginx server block for mise.
+# Copy to /etc/nginx/sites-available/mise, adjust server_name and root,
+# then: ln -s ../sites-available/mise /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx
 server {
     listen 80;
-    server_name dojobay.example;          # <- your domain
-    root /var/www/dojobay;                 # <- the repo checkout
+    server_name mise.example;          # <- your domain
+    root /var/www/mise;                 # <- the repo checkout
     index index.html;
 
     gzip on;
@@ -37,4 +37,4 @@ server {
     }
 }
 
-# For HTTPS, run: sudo certbot --nginx -d dojobay.example
+# For HTTPS, run: sudo certbot --nginx -d mise.example
