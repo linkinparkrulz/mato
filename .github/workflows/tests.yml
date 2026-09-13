@@ -1,0 +1,87 @@
+name: Tests
+
+# The gate CONTRIBUTING.md describes, run by GitHub instead of by hand: two
+# installs, a type check, three suites, and the instance-data checksums.
+#
+# It runs on pull requests and on pushes to main. The push trigger is the one
+# that matters here, because deploy.yml fires on the same push and does not wait
+# for this: a red tick beside a deployed commit is later than anybody would like
+# but is still the only signal there is. Making the deploy depend on this job is
+# a separate decision, since it trades a slower deploy for a tested one.
+#
+# Node 24 because that is what the boxes run and what package.json requires.
+# There is no dependency cache: two lockfiles in two directories is enough
+# fiddliness to be worth avoiding for a job that installs in well under a minute.
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+# Reads the tree and writes nothing back, so the token needs nothing else.
+# Stated rather than inherited, for the reasons deploy.yml gives at length.
+permissions:
+  contents: read
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # Two installs, not one. The root brings in TypeScript and @types/node;
+      # server brings in the runtime dependencies the checker must also resolve.
+      # Without the second, tsc reports missing @dojo-tools and @bitcoinerlab
+      # modules and the tree looks broken when it is not.
+      - name: Install (root)
+        run: npm ci --no-audit --no-fund
+
+      - name: Install (server)
+        run: npm ci --no-audit --no-fund
+        working-directory: server
+
+      # The instance-owned files must be byte-identical afterwards. A suite that
+      # mutates them is a bug in the suite, and one that nothing else here would
+      # notice: every suite would still pass.
+      - name: Record instance-data checksums
+        run: sha256sum data/dojos.json data/history.json data/history-daily.json > "$RUNNER_TEMP/before.sha"
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Updater and installer suite
+        run: node scripts/selftest.mjs
+
+      - name: Backend suite
+        run: node selftest.mjs
+        working-directory: server
+
+      # jsdom is installed outside the workspace, exactly as a developer does it,
+      # so the front end and scripts/ stay dependency-free. E2E_DIR is what the
+      # harness reads; RUNNER_TEMP rather than /tmp so nothing assumes a path
+      # that a self-hosted runner might not have.
+      - name: Install jsdom outside the tree
+        run: |
+          mkdir -p "$RUNNER_TEMP/e2e"
+          cd "$RUNNER_TEMP/e2e"
+          npm init -y > /dev/null
+          npm install jsdom --no-audit --no-fund
+
+      - name: Front-end harness
+        run: node scripts/e2e-harness.mjs
+        env:
+          E2E_DIR: ${{ runner.temp }}/e2e
+
+      - name: Instance data unchanged
+        run: sha256sum -c "$RUNNER_TEMP/before.sha"

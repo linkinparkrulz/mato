@@ -1,0 +1,20 @@
+{
+  "name": "the-dojo-bay",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Onion-only, self-hostable directory of public Bitcoin Dojo nodes for Samourai and Ashigaru wallets, with Auth47 self-service listings and a Tor reachability updater.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "update": "node scripts/update.mjs",
+    "test": "node scripts/selftest.mjs",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "typescript": "^5.9.3"
+  }
+}

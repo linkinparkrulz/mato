@@ -1,0 +1,40 @@
+# Sample nginx server block for The Dojo Bay.
+# Copy to /etc/nginx/sites-available/dojobay, adjust server_name and root,
+# then: ln -s ../sites-available/dojobay /etc/nginx/sites-enabled/ && nginx -t && systemctl reload nginx
+server {
+    listen 80;
+    server_name dojobay.example;          # <- your domain
+    root /var/www/dojobay;                 # <- the repo checkout
+    index index.html;
+
+    gzip on;
+    gzip_types text/css text/javascript application/javascript application/json image/svg+xml text/markdown;
+
+    # The directory data is rewritten every 10 minutes — keep it fresh.
+    location /data/ {
+        add_header Cache-Control "max-age=60";
+        types { application/json json; }
+        default_type application/json;
+    }
+
+    # Long-cache the immutable, fingerprint-free static assets and fonts.
+    location ~* \.(woff2|png|svg|css|js)$ {
+        add_header Cache-Control "max-age=86400";
+    }
+
+    # Optional: advertise the .onion so Tor Browser offers it automatically.
+    # add_header Onion-Location http://YOURONIONADDRESS.onion$request_uri;
+
+    # --- self-service backend (step 2 only; uncomment once server/ is running) ---
+    # location /api/ {
+    #     proxy_pass http://127.0.0.1:8787;
+    #     proxy_set_header Host $host;
+    #     proxy_read_timeout 40s;   # the connection gate probes Tor, allow time
+    # }
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+}
+
+# For HTTPS, run: sudo certbot --nginx -d dojobay.example

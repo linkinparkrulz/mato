@@ -1,0 +1,24 @@
+{
+  "name": "dojobay-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Auth47-gated self-service submission API for The Dojo Bay.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node index.mjs",
+    "build-public": "node build-public.mjs",
+    "test": "node selftest.mjs"
+  },
+  "dependencies": {
+    "@dojo-tools/auth47": "2.0.0",
+    "@dojo-tools/bip47": "2.0.0",
+    "@dojo-tools/bitcoinjs-message": "4.0.0",
+    "@bitcoinerlab/secp256k1": "1.2.0"
+  },
+  "devDependencies": {
+    "bip39": "3.1.0"
+  }
+}

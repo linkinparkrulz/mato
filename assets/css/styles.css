@@ -1,0 +1,393 @@
+/* Self-hosted variable fonts (latin subset). No external CDN. */
+@font-face{font-family:'Archivo';font-style:normal;font-weight:100 900;font-display:swap;src:url('../fonts/archivo.woff2') format('woff2')}
+@font-face{font-family:'Hanken Grotesk';font-style:normal;font-weight:100 900;font-display:swap;src:url('../fonts/hanken-grotesk.woff2') format('woff2')}
+@font-face{font-family:'JetBrains Mono';font-style:normal;font-weight:100 800;font-display:swap;src:url('../fonts/jetbrains-mono.woff2') format('woff2')}
+
+:root{
+    --bg:#0a0a0a; --panel:#141414; --panel2:#1c1c1c; --line:#2a2a2a; --line-soft:#1c1c1c;
+    --text:#f4f4f3; --muted:#a0a0a0; --faint:#6b6b6b;
+    --accent:#b5302a; --accent-2:#d6534a; --accent-bg:rgba(181,48,42,.12); --accent-line:rgba(181,48,42,.34);
+    --btc:#f7931a; --btc-text:#1a1206; --grey-sel:#8a8a8a;
+    --up:#3fb950; --up-bg:rgba(63,185,80,.14); --down:#d6584f; --down-dim:#5a3330;
+    /* Every use of this was written as var(--warn,#e0a020) against a token that
+       was never declared, so the fallback always won. Declared here so the
+       amber is adjustable in one place; --mid is the 90-day middle band, which
+       was a bare hex literal for the same reason. */
+    --warn:#e0a020; --mid:#b9a13a;
+    /* Same class of bug, found by auditing every var() reference against the
+       declarations: .admin-row asked for --card and had been taking #0e0e10 by
+       fallback since it was written. Declared at that value rather than at
+       --panel, so nothing changes appearance; whether the admin rows were meant
+       to sit a shade darker than the cards they resemble is a separate
+       question, and not one to answer by accident a second time. */
+    --card:#0e0e10;
+    --code-bg:#070707; --code-fg:#e6a39b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--text)}
+  body{font-family:'Hanken Grotesk',system-ui,sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased}
+  .mono{font-family:'JetBrains Mono',ui-monospace,monospace}
+  .disp{font-family:'Archivo',sans-serif}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 22px}
+  .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+
+
+  header{border-bottom:1px solid var(--line-soft);position:sticky;top:0;background:rgba(11,11,12,.86);backdrop-filter:blur(8px);z-index:20}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 22px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand .name{font-weight:800;font-size:18px;letter-spacing:-.01em}
+  .brand .sub{font-size:10.5px;color:var(--faint);margin-top:1px;letter-spacing:.04em}
+  nav{display:flex;gap:6px;align-items:center}
+  nav .lnk{color:var(--muted);font-size:14px;padding:7px 11px;border-radius:7px;transition:color .15s,background .15s}
+  nav .lnk:hover{color:var(--text);background:var(--panel)}
+  .onion-pill{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--accent);border:1px solid var(--accent-line);background:var(--accent-bg);padding:6px 10px;border-radius:7px;margin-left:4px}
+  .onion-pill:hover{background:rgba(247,147,26,.16)}
+  .burger{display:none;background:none;border:0;color:var(--text);padding:6px;cursor:pointer;border-radius:7px}
+  /* The Auth47 challenge, shown under its QR. Wraps anywhere because it is one
+     unbroken token, and carries its own copy button for the same-device case. */
+  /* Column, always, at every width. Side by side the button lands wherever the
+     URI happens to stop wrapping, so it sits mid-line on one screen and below
+     on another, and on the narrow case it crowds the text it belongs to. The
+     URI is a single unbroken token that has to wrap anyway, so there is no
+     width at which a row reads better. */
+  .a47-uri{display:flex;flex-direction:column;align-items:center;gap:10px;
+    margin-top:10px;text-align:left}
+  .a47-uri code{font-size:10.5px;color:var(--faint);word-break:break-all;line-height:1.5;
+    max-width:44ch;width:100%}
+  .a47-uri .copybtn{align-self:center}
+  .upd-line{margin:6px 0}
+  /* Self-update has never completed a run on real hardware. The badge is not
+     decoration: a maintainer clicking Update from GitHub is the first person
+     who will find out whether it works, and should know that before clicking. */
+  .upd-exp{display:inline-block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+    font-family:'JetBrains Mono',monospace;color:var(--warn,#e0a020);
+    border:1px solid rgba(224,160,32,.45);background:rgba(224,160,32,.10);
+    border-radius:5px;padding:1px 6px;margin-left:8px;vertical-align:1px}
+  /* Full width. It was capped at 62ch, which is right for prose a reader is
+     settling into and wrong for a warning beside the control it warns about:
+     it left the paragraph as a narrow column against a wide panel, and the
+     ragged right edge read as a layout fault rather than as deliberate
+     measure. */
+  .upd-exp-note{font-size:11.5px;color:var(--faint);line-height:1.55;margin:8px 0 0;width:100%}
+  .upd-none{font-size:11.5px;color:var(--faint);margin:6px 0 0}
+  /* An update that did not finish. Warning-coloured rather than faint, because
+     the failure it describes is invisible everywhere else: the code is on disk,
+     the footer already shows the new build, and only the process serving the
+     page is stale. */
+  .upd-warn{font-size:12px;line-height:1.55;margin:8px 0 0;padding:9px 11px;border-radius:7px;
+    color:#e9d6d2;background:rgba(214,88,79,.10);border:1px solid rgba(214,88,79,.45)}
+  .upd-warn b{color:var(--down)}
+  .upd-controls{display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap}
+  .upd-bar{height:8px;border-radius:6px;background:var(--panel2);overflow:hidden;margin:8px 0}
+  .upd-bar-fill{height:100%;transition:width .4s ease;border-radius:6px}
+  .upd-log{font-size:11px;color:var(--faint);background:var(--panel2);border-radius:8px;padding:8px 10px;margin:6px 0;white-space:pre-wrap;line-height:1.5;max-height:120px;overflow:auto}
+  /* The import plan. Refused rows are coloured rather than hidden: a directory
+     publishing listings this instance will not accept is the most informative
+     thing on the table, and collapsing it to a count would bury it. */
+  table.imp{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}
+  table.imp th{text-align:left;font-weight:600;color:var(--faint);font-size:11px;
+    padding:4px 8px 4px 0;border-bottom:1px solid var(--line-soft)}
+  table.imp td{padding:5px 8px 5px 0;border-bottom:1px solid var(--line-soft);vertical-align:top}
+  tr.imp-merge td{color:var(--muted)}
+  tr.imp-refuse td{color:var(--down)}
+  .op-avatar{width:20px;height:20px;border-radius:50%;object-fit:cover;
+             border:1px solid var(--line-soft);display:inline-block;vertical-align:middle}
+  /* PayNym avatar centred on the pairing QR (QR is generated at EC level H,
+     so the ~5% of symbol area the avatar covers is well within recovery) */
+  .tile{position:relative}
+  .qr-avatar{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+             width:21%;height:21%;object-fit:cover;border-radius:8px;
+             border:3px solid #fff;background:#fff}
+  /* payment code chip on cards: truncated, click copies the full code */
+  /* The payment code owns its own line and spans the card, so it reads as the
+     identity of the listing rather than one chip among several. The verified
+     domain and its verify button sit on the line beneath. */
+  .pcode{display:block;width:100%;text-align:left;margin:2px 0 8px;padding:5px 11px;font-size:11.5px;
+         letter-spacing:.02em;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+         background:var(--panel2);border:1px solid var(--line-soft);border-radius:8px;cursor:pointer}
+  .pcode:hover{color:var(--text);border-color:var(--accent)}
+  .pcode.done{color:var(--up)}
+  /* inline display-field editor (Manage rows and admin rows) */
+  .medit{margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);display:flex;flex-direction:column;gap:8px}
+  .medit label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
+  .medit input{background:var(--panel);border:1px solid var(--line-soft);border-radius:7px;color:var(--text);
+               padding:7px 9px;font-size:13px;font-family:inherit}
+  .medit input:focus{outline:none;border-color:var(--accent)}
+  .medit-actions{display:flex;gap:8px;align-items:center}
+  .copybtn[disabled],.abtn[disabled]{opacity:.4;cursor:default}
+  .burger:hover{background:var(--panel)}
+
+  .controls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;padding:30px 22px 18px}
+  .seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px}
+  .seg button{font-family:'JetBrains Mono',monospace;font-size:12px;padding:8px 18px;border-radius:7px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);transition:background .15s,color .15s}
+  .seg button.on{color:#0a0a0a;font-weight:700}
+  .seg button[data-net="mainnet"].on{background:var(--btc);color:var(--btc-text)}
+  .seg button[data-net="testnet"].on{background:var(--grey-sel);color:#0a0a0a}
+  .fresh{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .fresh .dot{width:7px;height:7px;border-radius:99px;background:var(--up);display:inline-block;box-shadow:0 0 0 3px var(--up-bg)}
+  .fresh b{color:var(--text);font-weight:700}
+  .fresh .sep{color:var(--faint)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px}
+  .card{background:var(--panel);border:1px solid var(--line-soft);border-radius:12px;padding:18px;transition:border-color .18s,transform .18s}
+  .card:hover{border-color:var(--line);transform:translateY(-2px)}
+  .card.inactive{opacity:.74}
+  .ctop{display:flex;align-items:center;gap:10px}
+  .ctop .sd{width:9px;height:9px;border-radius:99px;flex-shrink:0}
+  .sd.active{background:var(--up);box-shadow:0 0 0 3px var(--up-bg)}
+  .sd.inactive{background:var(--down);box-shadow:0 0 0 3px rgba(214,88,79,.14)}
+  .cname{font-family:'Archivo',sans-serif;font-weight:700;font-size:16px;letter-spacing:-.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  a.cname{transition:color .15s}
+  a.cname:hover{color:var(--accent)}
+  a.cname .ext{font-size:11px;color:var(--faint);vertical-align:middle}
+  a.cname:hover .ext{color:var(--accent)}
+  .cbadge{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:5px;font-weight:700;flex-shrink:0}
+  /* Stale data: the updater has not refreshed dojos.json for several intervals,
+     so we stop asserting status. Badges go neutral rather than green or red,
+     because "unknown" is the honest answer, not "down". */
+  /* The empty directory. Deliberately quiet: a bordered panel rather than a
+     warning colour, because an instance with nothing published yet is usually
+     new rather than broken. */
+  .empty{border:1px dashed var(--line);border-radius:10px;padding:26px 22px;text-align:center;
+    color:var(--muted);font-size:14px;line-height:1.65;margin:0 0 18px}
+  .empty b{color:var(--text)}
+  .empty-cta{margin-top:8px;font-size:13px;color:var(--faint)}
+  /* The Tor port picker. Two presets, because there are two answers in practice
+     and a free-text field would invite typos into the one value that has to be
+     right for any of the commands below it to work. */
+  .portpick{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0 14px}
+  .portpick .k{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--faint)}
+  .pbtn{font:inherit;font-family:'JetBrains Mono',monospace;font-size:13px;padding:6px 11px;
+    border-radius:7px;border:1px solid var(--line);background:transparent;color:var(--muted);cursor:pointer}
+  .pbtn .w{display:block;font-family:'Hanken Grotesk',sans-serif;font-size:10.5px;color:var(--faint);
+    letter-spacing:0;text-transform:none;margin-top:1px}
+  .pbtn:hover{border-color:var(--line-soft);color:var(--text)}
+  .pbtn.on{border-color:var(--accent);color:var(--accent-2);background:rgba(181,48,42,.10)}
+  .pbtn.on .w{color:var(--accent-2)}
+  .stale-banner{margin:0 0 18px;padding:12px 14px;border-radius:8px;font-size:13.5px;line-height:1.6;
+    color:var(--text);background:rgba(214,88,79,.10);border:1px solid rgba(214,88,79,.35)}
+  .stale-banner b{color:var(--down)}
+  .grid.stale .sd.active,.grid.stale .sd.inactive{background:var(--faint);box-shadow:0 0 0 3px rgba(139,148,158,.12)}
+  .grid.stale .cbadge.active,.grid.stale .cbadge.inactive{color:var(--faint);background:var(--panel2)}
+  .grid.stale .card{opacity:.92}
+  .fresh.stale .dot{background:var(--faint);box-shadow:0 0 0 3px rgba(139,148,158,.12)}
+  .cbadge.active{color:var(--up);background:var(--up-bg)}
+  .cbadge.inactive{color:var(--down);background:rgba(214,88,79,.12)}
+  .csub{display:flex;align-items:center;gap:8px;margin:9px 0 2px;font-size:13px;flex-wrap:wrap}
+  .csub .pn{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--accent)}
+  .csub .pn:hover{text-decoration:underline}
+  .csub .jur{color:var(--muted);display:inline-flex;align-items:center;gap:5px}
+  .csub .flag{font-size:14px;line-height:1}
+  .csub .nopn{color:var(--faint);font-style:italic;font-size:12.5px}
+
+  .rel{margin:15px 0 4px}
+  .rel-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .rel-head .pct{font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:700}
+  .rel-head .pct .n{color:var(--faint);font-weight:400}
+  .rel-bars{display:flex;gap:2px;align-items:stretch;height:26px}
+  .rel-bars .b{flex:1;min-width:2px;border-radius:1px;background:var(--down-dim)}
+  .rel-bars .b.up{background:var(--up)}
+  .rel-bars .b.down{background:var(--down)}
+  .rel-axis{display:flex;justify-content:space-between;margin-top:5px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--faint)}
+
+  .meta{display:grid;grid-template-columns:1fr 1fr;gap:11px 16px;margin:14px 0 4px}
+  .meta .full{grid-column:1/-1}
+  .meta .v{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--text);margin-top:2px;word-break:break-word}
+
+  .reveal{width:100%;padding:11px;border-radius:8px;background:var(--accent-bg);border:1px solid var(--accent-line);color:var(--accent-2);font-weight:600;font-size:13.5px;margin-top:14px;transition:background .15s}
+  .reveal:hover{background:rgba(247,147,26,.16)}
+  .reveal.open{color:var(--muted);border-color:var(--line)}
+  /* Secondary action under the primary one: same shape, quieter, so pairing
+     stays the obvious thing to click. */
+  .reveal.secondary{background:var(--panel2);border-color:var(--line);color:var(--muted);
+    font-weight:500;font-size:12.5px;padding:9px;margin-top:8px}
+  .reveal.secondary:hover{color:var(--text);border-color:var(--line-soft);background:var(--panel2)}
+
+  .pair{margin-top:14px;animation:rise .25s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+  .qr{display:flex;flex-direction:column;align-items:center;gap:7px;margin-bottom:14px}
+  .qr .tile{background:#fff;border:1px solid var(--accent-line);border-radius:10px;padding:12px;line-height:0}
+  .qr .tile svg{display:block;border-radius:2px}
+  .qr .cap{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .box{margin-bottom:12px}
+  .box .lbl,.modal-body>.lbl{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+  .modal-body>.lbl{margin:18px 0 8px;gap:12px}
+  .box .lbl .t,.modal-body>.lbl .t{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .box pre{font-family:'JetBrains Mono',monospace;font-size:10.5px;line-height:1.55;background:var(--code-bg);color:var(--code-fg);border:1px solid var(--line);border-radius:8px;padding:13px;white-space:pre-wrap;word-break:break-all;max-height:240px;overflow:auto}
+  .box.signed pre{color:#cdd6e4;font-size:10px}
+  .copybtn{font-family:'JetBrains Mono',monospace;font-size:11px;padding:5px 11px;border:1px solid var(--accent-line);border-radius:6px;color:var(--accent);background:var(--accent-bg);transition:background .15s}
+  .copybtn:hover{background:rgba(247,147,26,.18)}
+  .copybtn.done{color:var(--up);border-color:rgba(63,185,80,.4);background:var(--up-bg)}
+  .eps{margin-top:4px;display:flex;flex-direction:column;gap:8px}
+  .card-eps{margin-top:14px;display:flex;flex-direction:column;gap:7px}
+  .ep{display:flex;align-items:center;gap:9px}
+  .ep .k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint);min-width:62px}
+  .ep .u{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Verified operator domain: a quiet badge, not a trust mark. It sits beside the
+     payment-code chip and attests to control of the domain only. */
+  .vdomain{display:inline-flex;align-items:center;gap:5px;font-family:'JetBrains Mono',monospace;
+    font-size:11px;padding:4px 8px;border-radius:6px;text-decoration:none;
+    color:var(--up);border:1px solid rgba(63,185,80,.35);background:var(--up-bg);white-space:nowrap;
+    max-width:190px;overflow:hidden;text-overflow:ellipsis}
+  .vdomain:hover{border-color:rgba(63,185,80,.6)}
+  /* "For the machines among us": an unobtrusive way to interrogate the badge. */
+  /* Domain and its verify button, on the line below the payment code. The
+     domain takes the free space so a long one truncates instead of pushing the
+     button off the card. */
+  .vrow{display:flex;align-items:center;gap:8px;margin:0 0 8px;flex-wrap:nowrap}
+  .vrow .vdomain{flex:1 1 auto;min-width:0;max-width:none}
+  .vrow .vproof{flex:0 0 auto}
+  .vproof{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;
+    padding:4px 7px;border-radius:6px;color:var(--faint);border:1px solid var(--line);
+    background:var(--panel2);cursor:pointer}
+  .vproof:hover{color:var(--muted);border-color:var(--line-soft)}
+  /* A warning that must not be skimmed past: the XPUB advice is the one place
+     where following the page carelessly could cost a reader their privacy. */
+  .warnbox{border:1px solid rgba(214,88,79,.45);background:rgba(214,88,79,.10);
+    border-radius:8px;padding:11px 13px;margin:0 0 12px;font-size:13px;line-height:1.6}
+  .warnbox b{color:var(--down)}
+  .proofblk{margin:0 0 12px}
+  .proofblk .k{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;
+    text-transform:uppercase;color:var(--faint);margin-bottom:4px}
+  .proofblk pre{margin:0 0 6px;padding:9px 10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:6px;font-size:11.5px;white-space:pre-wrap;word-break:break-all;color:var(--muted)}
+  /* Verified-domain setup box in Manage. */
+  .dbox{border:1px solid var(--line);border-radius:8px;padding:12px 13px;background:var(--panel2);margin-bottom:12px}
+  .dbox p{margin:0 0 8px}
+  .dbox .dnote{font-size:12.5px;color:var(--muted)}
+  .dbox .dmsg{font-size:12.5px;color:var(--accent);margin-top:8px;
+    overflow-wrap:anywhere;word-break:break-word;line-height:1.5}
+  /* Anything that can contain a payment code, an onion or a TXT value. */
+  .dbox .dnote,.dbox .dwrap{overflow-wrap:anywhere;word-break:break-word}
+  .dbox{overflow:hidden}
+  .dbox .ok-tick{color:var(--up)}
+  .dbox .ep{margin-bottom:6px}
+  .dsign{font-size:11.5px;background:var(--panel);border:1px solid var(--line);border-radius:6px;
+    padding:9px 10px;white-space:pre-wrap;word-break:break-all;color:var(--muted);margin:0 0 8px}
+  .dbox textarea{width:100%;font-family:'JetBrains Mono',monospace;font-size:11.5px}
+  .ep .copybtn{flex-shrink:0}
+  /* An endpoint the node does not publish. The field keeps the same box as the
+     other endpoints so the rows line up; only the text colour marks it as not
+     being a value. The copy button stays in place, inert, so the row does not
+     change width or lose its right-hand column. */
+  .ep .u.na{color:var(--faint)}
+  .copybtn[disabled]{opacity:.4;cursor:default;color:var(--faint);border-color:var(--line);background:var(--panel2)}
+  .copybtn[disabled]:hover{background:var(--panel2)}
+
+  .note{margin:30px 0 8px;font-size:13.5px;color:var(--muted);line-height:1.65}
+  .note a{color:var(--accent);font-weight:600}
+  .note a:hover{text-decoration:underline}
+
+  footer{border-top:1px solid var(--line-soft);padding:24px 0;margin-top:18px}
+  footer .wrap{display:flex;justify-content:center}
+  footer .gh{color:var(--faint);display:inline-flex;align-items:center;transition:color .15s}
+  footer .gh:hover{color:var(--text)}
+  footer .gh svg{display:block}
+
+  .ov{position:fixed;inset:0;background:rgba(4,4,5,.72);backdrop-filter:blur(3px);display:none;align-items:flex-start;justify-content:center;padding:6vh 18px;z-index:50;overflow:hidden}
+  .ov.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:14px;max-width:700px;width:100%;padding:0;box-shadow:0 24px 60px rgba(0,0,0,.5);display:flex;flex-direction:column;max-height:88vh;min-height:0;overflow:hidden}
+  .modal-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--line-soft);background:var(--panel);border-radius:14px 14px 0 0;flex:0 0 auto}
+  .modal-head h2{font-family:'Archivo',sans-serif;font-size:19px;font-weight:700}
+  .modal-head .x{font-size:22px;color:var(--muted);line-height:1;padding:2px 8px;border-radius:6px}
+  .modal-head .x:hover{background:var(--panel2);color:var(--text)}
+  .modal-body{padding:22px 24px 26px;flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+  .modal-body p{font-size:14px;color:#d7d7d4;line-height:1.7;margin-bottom:13px}
+  .modal-body h2{font-family:'Archivo',sans-serif;font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin:26px 0 12px;padding-bottom:7px;border-bottom:1px solid var(--line-soft)}
+  .modal-body h2:first-child{margin-top:0}
+  .modal-body h3{font-family:'Archivo',sans-serif;font-weight:700;color:var(--text);font-size:14.5px;margin:18px 0 4px}
+  .modal-body strong{color:var(--text)}
+  .modal-body a{color:var(--accent);font-weight:600;word-break:break-word}
+  .modal-body a:hover{text-decoration:underline}
+  .modal-body ul{margin:0 0 13px 2px;padding:0;list-style:none}
+  .modal-body li{font-size:14px;color:#d7d7d4;line-height:1.6;margin-bottom:6px;padding-left:2px}
+  .modal-body code{font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--accent);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:2px 6px}
+  .modal-body blockquote{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;padding:14px 16px;margin:0 0 16px}
+  .modal-body blockquote p{font-size:13.5px;margin-bottom:9px}
+  .modal-body blockquote p:last-child{margin-bottom:0}
+  .modal-body blockquote code{display:inline-block;color:var(--accent);font-size:14px}
+  .modal-body .loading{color:var(--faint);font-family:'JetBrains Mono',monospace;font-size:13px}
+  @media (max-width:560px){
+    .meta{grid-template-columns:1fr}
+    /* The network toggle and the freshness line sit at opposite ends of one row
+       on a wide screen, which is what space-between is for. On a narrow one they
+       wrap onto separate lines, and space-between then puts a lone item at the
+       start of its line, so both ended up hard against the left edge under a
+       centred header. Centre them instead: the toggle is the page's primary
+       control and reads as a control rather than a stray pair of words when it
+       is centred under the title.
+       .fresh is itself a flex container whose own content wraps, so it needs
+       centring too, or its second line ("re-checks every 10 min") hangs left
+       under a centred first line, which looks like a mistake rather than a
+       wrap. text-align covers any inline content that is not a flex item. */
+    .controls{justify-content:center;gap:12px;padding:22px 18px 14px}
+    .fresh{justify-content:center;text-align:center}
+    header .wrap{padding:14px 18px;position:relative;justify-content:flex-start}
+    .burger{display:block;z-index:2}
+    /* Centre the title while the hamburger is in use. Only then: taking .brand
+       out of flow leaves the burger as the header's only in-flow child, and on
+       a page that has no burger the header collapses to its padding, so the
+       brand overlaps whatever is beneath it. That is what the operator console
+       looked like on a phone, its title clipped over the Moderation heading,
+       and its one nav link was unreachable as well because the nav becomes a
+       dropdown with nothing to open it. */
+    header:not(.no-menu) .brand{position:absolute;left:50%;transform:translateX(-50%)}
+    header.no-menu .wrap{justify-content:space-between;gap:10px}
+    header.no-menu nav{display:flex;position:static;flex-direction:row;background:none;
+      backdrop-filter:none;border:0;padding:0}
+    header.no-menu nav .lnk{padding:8px 10px;font-size:14px;white-space:nowrap}
+    header.no-menu .brand .name{font-size:16px}
+    /* the nav becomes a full-width dropdown under the header */
+    nav{display:none;position:absolute;top:100%;left:0;right:0;flex-direction:column;align-items:stretch;gap:2px;
+        background:rgba(11,11,12,.97);backdrop-filter:blur(8px);border-bottom:1px solid var(--line-soft);padding:8px 14px 12px}
+    nav.open{display:flex}
+    nav .lnk{display:block;text-align:center;padding:12px;font-size:15px}
+    nav .onion-pill{text-align:center;margin:6px 0 0}
+    /* Less chrome around the dialog on a small screen, so the body gets the
+       height. The scrolling still happens inside .modal-body. */
+    .ov{padding:3vh 10px}
+    .modal{max-height:94vh}
+    .modal-head{padding:16px 18px}
+    .modal-body{padding:18px 18px 22px}
+  }
+  @media (prefers-reduced-motion:reduce){.card:hover{transform:none}.pair{animation:none}}
+
+  /* Manage my Dojo form */
+  .mform{display:flex;flex-direction:column;gap:12px}
+  .mform label{display:flex;flex-direction:column;gap:5px;font-size:12.5px;color:var(--muted)}
+  .mform input,.mform select,.mform textarea{background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:7px;padding:9px 10px;font-family:'JetBrains Mono',monospace;font-size:12.5px;width:100%}
+  .mform textarea{resize:vertical;line-height:1.5}
+  .mform input:focus,.mform select:focus,.mform textarea:focus{outline:none;border-color:var(--accent-line)}
+
+  /* 90-day daily history (on the card, below the 24h strip) */
+  .hist90{margin-top:12px}
+  .d90strip{display:flex;gap:1px;align-items:flex-end;height:22px;margin:8px 0 6px}
+  .d90{flex:1 1 0;min-width:1px;height:100%;border-radius:1px;background:var(--line)}
+  .d90.up{background:var(--up)} .d90.mid{background:var(--mid)} .d90.down{background:var(--down)} .d90.na{background:var(--line)}
+  .d90foot{display:flex;justify-content:space-between;font-size:11px;font-family:'JetBrains Mono',monospace}
+  .spark{display:block;margin-top:6px;opacity:.9}
+
+  footer .ver{margin-left:12px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--faint)}
+  footer .ver a{color:var(--faint)} footer .ver a:hover{color:var(--text)}
+
+  /* footer verify link */
+  footer .wrap{display:flex;align-items:center;gap:10px}
+  .foot-spacer{flex:1}
+  .verify-pre{background:var(--panel,#111);border:1px solid var(--line);border-radius:8px;padding:12px;font-family:'JetBrains Mono',monospace;font-size:11px;white-space:pre-wrap;word-break:break-all;color:var(--text);margin-top:6px}
+
+  /* admin console */
+  .admin-row{border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;background:var(--card,#0e0e10)}
+  .admin-head{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+  .abadge{font-size:10px;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}
+  .abadge.pending{color:#b9a13a;border-color:#b9a13a}
+  .abadge.approved{color:var(--up);border-color:var(--up)}
+  .abadge.rejected{color:var(--down);border-color:var(--down)}
+  .admin-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .abtn{font:inherit;font-size:13px;padding:7px 14px;border-radius:8px;border:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer}
+  .abtn.ok{border-color:var(--up);color:var(--up)}
+  .abtn.danger{border-color:var(--down);color:var(--down)}
+  .abtn:disabled{opacity:.5}

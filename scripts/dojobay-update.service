@@ -1,0 +1,16 @@
+# Install to /etc/systemd/system/dojobay-update.service
+# Adjust WorkingDirectory and User to match your deployment.
+[Unit]
+Description=Update The Dojo Bay directory (probe .onion nodes over Tor)
+After=tor.service network-online.target
+Wants=tor.service
+
+[Service]
+Type=oneshot
+User=dojobay
+Group=dojobay
+WorkingDirectory=/var/www/dojobay
+ExecStart=/usr/bin/node scripts/update.mjs
+# Tor SOCKS proxy defaults to 127.0.0.1:9050. Override config via env if needed:
+# Environment=CONCURRENCY=6
+# Environment=TIMEOUT_MS=30000

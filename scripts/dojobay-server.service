@@ -1,0 +1,27 @@
+# Install to /etc/systemd/system/dojobay-server.service (step 2 only).
+# The self-service backend. Runs as the deploy user, bound to localhost; nginx
+# reverse-proxies /api/ to it. Needs Tor (for the connection gate) and the
+# server/ dependencies installed (cd server && npm ci).
+[Unit]
+Description=The Dojo Bay self-service submission backend
+After=tor.service network-online.target
+Wants=tor.service
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/var/www/dojobay/server
+# BASE_URL MUST be the site's public origin (its .onion), used for the Auth47
+# callback and resource. Set it to your hidden-service address.
+Environment=PORT=8787
+Environment=BASE_URL=http://YOURONIONADDRESS.onion
+Environment=TOR_SOCKS_PORT=9050
+# Comma-separated BIP47 payment codes allowed to moderate at /admin. Per-operator.
+Environment=ADMIN_PAYMENT_CODES=ADMINPAYMENTCODE
+ExecStart=/usr/bin/node index.mjs
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

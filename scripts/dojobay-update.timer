@@ -1,0 +1,36 @@
+# Install to /etc/systemd/system/dojobay-update.timer then:
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now dojobay-update.timer
+[Unit]
+Description=Run The Dojo Bay updater every 10 minutes
+
+[Timer]
+# A wall-clock schedule, NOT OnUnitActiveSec.
+#
+# This used to say OnBootSec=2min with OnUnitActiveSec=10min, which schedules
+# the next run relative to the last time the service was ACTIVE. A service that
+# fails never becomes active, so a run of failures leaves the timer with nothing
+# to count from and it stops scheduling entirely. That is not theoretical: an
+# instance whose service could not start spent seventeen hours never being
+# probed, and fixing the cause did not restart the cycle, because the timer
+# still had no last activation to work from. It only recovered when somebody
+# started the service by hand. A directory that quietly stops updating while
+# still serving its last known state is the worst failure this project has.
+#
+# OnCalendar always has a next elapse, whatever the previous run did or did not
+# do, and it makes Persistent=true below mean something: after the machine has
+# been off, the updater runs once on the way up rather than waiting for the next
+# ten-minute boundary.
+OnCalendar=*:0/10
+# And once shortly after boot, so a freshly started machine does not sit with a
+# stale list until the next boundary comes round.
+OnBootSec=2min
+# Instances would otherwise all probe on the same wall-clock minutes, pointing
+# every directory in the federation at the same nodes simultaneously. A minute
+# of jitter costs nothing here and spreads that out.
+RandomizedDelaySec=60
+AccuracySec=30s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
