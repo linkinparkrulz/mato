@@ -94,10 +94,10 @@ content/
 data/
   seed.json                # instance ANCHOR: the operator's own node (exactly one)
   dojos.json               # GENERATED public list: committed EMPTY, see below
-  history.json             # rolling 24h check series   (instance-owned)
-  history-daily.json       # 90-day daily rollups       (instance-owned)
-  operator.json            # signed onion<->payment-code binding for Verify
-  paynym-codes.json        # PayNym -> BIP47 code variants (migration + display)
+  history.json             # rolling 24h check series: committed EMPTY, see below
+  history-daily.json       # 90-day daily rollups       (instance-owned; not committed)
+  operator.json            # signed onion<->payment-code binding (instance-owned; not committed)
+  paynym-codes.json        # PayNym -> BIP47 code variants (instance-owned; not committed)
 server/
   index.mjs                # Auth47 + submissions + moderation API (localhost)
   updates.mjs              # commits/releases-behind check against GitHub, over Tor
@@ -129,13 +129,15 @@ scripts/
 deploy/
   nginx-onion.conf.example # localhost bind, /api/ proxy, /server/ blocked
   polkit-restart.rules.example # lets the service account restart its own unit
-.github/workflows/deploy.yml, tests.yml
+.github/workflows/tests.yml   # upstream's deploy.yml is not carried here
 ```
 
 `data/dojos.json`, both history files and `server/data/` are owned by the
 running instance: never hand-edit them, and never let a deploy overwrite
-them. The deploy workflow excludes them for that reason, and `server/data/`
-is gitignored because the store holds Dojo API keys and live sessions.
+them. `server/data/` is gitignored because the store holds Dojo API keys and
+live sessions. Upstream also had a deploy workflow that excluded the rest;
+this fork does not carry one, so nothing stops a populated file from shipping
+except the rule below and the checksum gate in `tests.yml`.
 
 The committed `data/dojos.json` is an **empty scaffold**, and should stay that
 way. The file has to exist so a freshly installed instance serves something at
@@ -147,6 +149,19 @@ it for weeks. `generated_at: null` is deliberate, since it makes the front end
 report the directory as never refreshed and show an empty state that says so.
 Do not commit a populated one, and do not treat a diff to this file as a
 routine refresh.
+
+That last claim is now enforced rather than assumed. `freshness()` treats a
+missing timestamp on an *empty* list as "never published" and stays quiet,
+because `emptyState()` is already explaining the blank page and a staleness
+banner above it would be a second, contradictory account of the same thing. A
+missing timestamp on a *populated* list is still a broken publisher and still
+warns. Both cases are asserted in `scripts/e2e-harness.mjs`; before they were,
+the scaffold shipped both messages at once.
+
+`data/history.json` is committed as an empty scaffold for the same reason: the
+boot path fetches it alongside `dojos.json` and a 404 on either one is fatal to
+rendering. Its `nodes` is an object, not an array. `data/history-daily.json` is
+deliberately absent, since `loadHist90()` catches its own 404.
 
 ## Tests
 
@@ -207,14 +222,14 @@ One invariant applies to every test run: the instance-owned files must be
 byte-identical before and after. Gate your runs with checksums —
 
 ```
-sha256sum data/seed.json data/version.json > /tmp/before.sha
+sha256sum data/dojos.json data/history.json data/seed.json data/version.json > /tmp/before.sha
 # ... run tests ...
 sha256sum -c /tmp/before.sha
 ```
 
-`data/dojos.json` and the history files belong on that list on a running
-instance. A fresh clone has neither, so naming them makes `sha256sum` exit 1 on
-a missing file rather than report a difference.
+On a running instance `data/history-daily.json` belongs on that list too. A
+fresh clone does not ship one, so naming it makes `sha256sum` exit 1 on a
+missing file rather than report a difference.
 
 — and treat any difference as a bug in the test's isolation, not as noise.
 

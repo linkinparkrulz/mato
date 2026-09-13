@@ -652,11 +652,38 @@ ok("footer source-download icon links the instance's own code zip");
     "and offers the route to listing a Dojo, which is the only useful action from here");
   ok("a fresh install shows 'not yet refreshed', not an empty grid");
 
-  // The staleness banner must not also fire here. generated_at is null, so
-  // freshness() reports unknown, and two competing explanations for the same
-  // blank page would be worse than either alone.
+  // The staleness banner must not also fire here. Two competing explanations for
+  // the same blank page would be worse than either alone.
+  //
+  // This comment used to sit above the .grid assertion alone, which does not
+  // check it: freshness() read generated_at: null as an unparseable stamp and
+  // raised the banner anyway, so the scaffold shipped "Nothing published yet"
+  // underneath "These statuses are out of date". The stated intent was never
+  // tested, so assert it directly.
+  assert.ok(!fd.querySelector(".stale-banner"),
+    "no staleness banner on a never-rebuilt instance: emptyState already explains the blank page");
   assert.ok(!fd.querySelector(".grid"), "no grid element is emitted at all when there is nothing to put in it");
+  ok("a never-rebuilt instance gives one explanation, not two");
   fresh.window.close();
+
+  // The other side of that fix, and the reason it is keyed on the node count
+  // rather than on the timestamp alone: a POPULATED directory whose stamp will
+  // not parse is a broken publisher, and must still warn. Silencing this case
+  // would turn a visible fault into stale badges nobody questions.
+  const broken = await mountWith({ generated_at: null, interval_minutes: 10, nodes: [
+    { id: "mainnet-brokenstamp", network: "mainnet", name: "brokenstamp", status: "active",
+      paynym: "+broken", paymentCode: "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
+      jurisdiction: "Nowhere", country: "AQ", hardware: "test fixture", version: "1.28.0",
+      block_height: 900000, checked_at: "2026-07-14 00:00",
+      payload: { pairing: { type: "dojo.api", version: "1.28.0", apikey: "fixturekey",
+        url: "http://" + "a".repeat(56) + ".onion/v2" } } },
+  ] });
+  const bd = broken.window.document;
+  assert.ok(bd.querySelector(".stale-banner"),
+    "a populated directory with an unreadable timestamp still warns");
+  assert.ok(bd.querySelectorAll(".card").length === 1, "and still draws what it has");
+  ok("an unreadable timestamp on a populated directory still raises the banner");
+  broken.window.close();
 
   // 2. an established instance whose selected network is empty. Different
   //    message: the data is current, the other network has listings.

@@ -95,6 +95,17 @@ async function loadJSON(url){
   const STALE_INTERVALS = 3;
   function freshness(doc){
     const iv = Number(doc && doc.interval_minutes) > 0 ? Number(doc.interval_minutes) : 10;
+    // A directory that has never published is not a directory whose statuses
+    // have gone stale: there are no statuses. This is the shipped scaffold, and
+    // emptyState() below already says exactly what it means, so a second banner
+    // contradicting it above is noise rather than a warning. Keyed on the same
+    // condition emptyState() uses, so the two cannot drift into disagreeing.
+    //
+    // The node check is what keeps this from silencing a real fault: a
+    // POPULATED file whose timestamp will not parse is a broken publisher, and
+    // still warns below.
+    const never = !(doc && doc.generated_at) && !((doc && doc.nodes) || []).length;
+    if(never) return { stale:false, never:true, unknown:false, intervalMin:iv, ageMin:null };
     const t = Date.parse((doc && doc.generated_at) || "");
     if(!isFinite(t)) return { stale:true, unknown:true, intervalMin:iv, ageMin:null };
     const ageMin = (Date.now() - t) / 60000;
@@ -599,7 +610,7 @@ async function loadJSON(url){
   function render(){
     const list=DOJOS.nodes.filter(n=>n.network===net).sort(byUptime);
     const active=list.filter(n=>n.status==="active").length;
-    const gen=(DOJOS.generated_at||"").replace("T"," ").slice(0,16)+" UTC";
+    const gen=DOJOS.generated_at ? DOJOS.generated_at.replace("T"," ").slice(0,16)+" UTC" : "never";
     const FRESH=freshness(DOJOS);
 
     document.getElementById("root").innerHTML = `
