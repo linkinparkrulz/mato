@@ -40,13 +40,13 @@ const DOJOS = {
   interval_minutes: 10,
   nodes: [
     { id: "mainnet-91xtx93-yellow", network: "mainnet", name: "yellow", paynym: "+91xTx93x3",
-      paymentCode: "PM8TJfHaHuh5xgKoEbrkWaBtytb8qrRNYdmHzxiFcvacD6HpyyxvSV3VLKYsr6UvMxB4jvJP4xxNvCp2pRY3cJPNmLB2L8nYEttaFVszXSBjXNMy8cD9",
+      paymentCode: "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
       status: "active", block_height: 906000, checked_at: "2026-07-14 00:00",
       indexer_url: "tcp://" + "i".repeat(56) + ".onion:50001",
       operator_domain: "example.org",
-      operator_domain_proof: { domain: "example.org", paymentCode: "PM8TJfHaHuh5xgKoEbrkWaBtytb8qrRNYdmHzxiFcvacD6HpyyxvSV3VLKYsr6UvMxB4jvJP4xxNvCp2pRY3cJPNmLB2L8nYEttaFVszXSBjXNMy8cD9",
-        txt_name: "_dojobay.example.org", txt_value: "dojobay-domain-v1 pm=PM8TJfHaHuh5xgKoEbrkWaBtytb8qrRNYdmHzxiFcvacD6HpyyxvSV3VLKYsr6UvMxB4jvJP4xxNvCp2pRY3cJPNmLB2L8nYEttaFVszXSBjXNMy8cD9",
-        signed: "-----BEGIN BITCOIN SIGNED MESSAGE-----\nhttps://example.org/\n\nBIP47: PM8TJfHa\n-----BEGIN BITCOIN SIGNATURE-----\nAddress: 1HmVAPcz3hyETMnu4UzgJTw1mmrNcJKVB\n\n" + "H".repeat(87) + "=\n-----END BITCOIN SIGNATURE-----",
+      operator_domain_proof: { domain: "example.org", paymentCode: "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
+        txt_name: "_dojobay.example.org", txt_value: "dojobay-domain-v1 pm=PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
+        signed: "-----BEGIN BITCOIN SIGNED MESSAGE-----\nhttps://example.org/\n\nBIP47: PM8TJS2J\n-----BEGIN BITCOIN SIGNATURE-----\nAddress: 1ChvUUvht2hUQufHBXF8NgLhW8SwE2ecGV\n\n" + "H".repeat(87) + "=\n-----END BITCOIN SIGNATURE-----",
         verified_at: "2026-07-01T00:00:00Z" },
       payload: { pairing: { type: "dojo.api", version: "1.28.0", apikey: "fixturekey",
         url: "http://" + "a".repeat(56) + ".onion/v2" } } },
@@ -85,7 +85,7 @@ const ME = { authenticated: true, paymentCode: "PM8TJTESTCODE000000000000", admi
 
 let meCalls = 0;
 let dojosCalls = 0;
-const PCODE_FULL = "PM8TJfHaHuh5xgKoEbrkWaBtytb8qrRNYdmHzxiFcvacD6HpyyxvSV3VLKYsr6UvMxB4jvJP4xxNvCp2pRY3cJPNmLB2L8nYEttaFVszXSBjXNMy8cD9";
+const PCODE_FULL = "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97";
 const dom = new JSDOM(`<!DOCTYPE html><html><body><div id="root"></div></body></html>`, {
   url: "http://dojobay.onion/",
   runScripts: "outside-only",
@@ -106,7 +106,7 @@ const OPERATOR_SIGNED = [
   "http://dojobayeryasshgghz537de5ckgd5hhi4z5sdeil3roeh65fwhdnu2yd.onion/",
   "",
   "BIP47:",
-  "PM8TJfHaHuh5xgKoEbrkWaBtytb8qrRNYdmHzxiFcvacD6HpyyxvSV3VLKYsr6UvMxB4jvJP4xxNvCp2pRY3cJPNmLB2L8nYEttaFVszXSBjXNMy8cD9",
+  "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
   "-----BEGIN BITCOIN SIGNATURE-----",
   "Version: Bitcoin-qt (1.0)",
   "Address: 1K9Mdqs9hmZKxeMUDRLk4RZT5AJMfNtGpa",
@@ -142,7 +142,7 @@ window.fetch = async (url, opts) => {
     // as a QR, and a three-word payload produces a symbol nothing can be
     // concluded from. No paynym field either, which is deliberate — that is
     // what every instance installed before the field existed looks like.
-    /operator\.json/.test(url) ? { onion: "http://x.onion/", paymentCode: "PM8TJfHaHuh5xgKoEbrkWaBtytb8qrRNYdmHzxiFcvacD6HpyyxvSV3VLKYsr6UvMxB4jvJP4xxNvCp2pRY3cJPNmLB2L8nYEttaFVszXSBjXNMy8cD9", verifySigned: OPERATOR_SIGNED } :
+    /operator\.json/.test(url) ? { onion: "http://x.onion/", paymentCode: "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97", verifySigned: OPERATOR_SIGNED } :
     /\/api\/admin\/updates/.test(url) ? { available: true, commit: "abc1234", built: "2026-01-01", commits_behind: 3, status: "behind", latest_release: "v0.1", releases_behind: 1 } :
     /\/api\/me/.test(url) ? (meCalls++, ME) :
     /\/api\/domain$/.test(url) ? { claim: { domain: "example.org", verified: true, verified_at: "2026-07-01T00:00:00Z", last_check: "2026-07-20T00:00:00Z", last_result: "ok", failing_since: null, grace_days: 7 } } :
@@ -257,13 +257,13 @@ ok("cards ordered by 7d then 24h uptime; fresh above dead, both at the end");
 // payment code chip: truncated display, click copies the full code
 const chip = doc.querySelector('.card[data-id="mainnet-91xtx93-yellow"] .pcode');
 assert.ok(chip, "payment code chip rendered");
-assert.strictEqual(chip.textContent, "PM8TJfHa…XNMy8cD9", "chip truncation, got: " + chip.textContent);
+assert.strictEqual(chip.textContent, "PM8TJS2J…isZDbP97", "chip truncation, got: " + chip.textContent);
 const relEl = doc.querySelector('.card[data-id="mainnet-91xtx93-yellow"] .rel');
 assert.ok(chip.compareDocumentPosition(relEl) & 4, "chip sits above the reliability strip");
 chip.dispatchEvent(new window.Event("click", { bubbles: true }));
 await new Promise((r) => setTimeout(r, 20));
-assert.ok(window.__copied && window.__copied.endsWith("XNMy8cD9") && window.__copied.length > 100, "click copies the full code");
-ok("payment code chip: PM8TJfHa…XNMy8cD9 shown, full code copied on click");
+assert.ok(window.__copied && window.__copied.endsWith("isZDbP97") && window.__copied.length > 100, "click copies the full code");
+ok("payment code chip: PM8TJS2J…isZDbP97 shown, full code copied on click");
 
 // edit flow: one row at a time, save posts the fields. The Dojo version is NOT
 // part of the form: it is read live from the node's X-Dojo-Version header by
@@ -398,8 +398,8 @@ ok("verified domain badge on the card, absent when unverified");
   const body = doc.getElementById("ov-body").textContent;
   assert.ok(/dig \+short TXT _dojobay\.example\.org/.test(body), "it shows the dig command");
   assert.ok(/cloudflare-dns\.com\/dns-query/.test(body), "and an HTTPS equivalent for readers without dig");
-  assert.ok(/dojobay-domain-v1 pm=PM8TJfHa/.test(body), "and the exact TXT value to expect");
-  assert.ok(/1HmVAPcz3hyETMnu4UzgJTw1mmrNcJKVB/.test(body), "and the signing address");
+  assert.ok(/dojobay-domain-v1 pm=PM8TJS2J/.test(body), "and the exact TXT value to expect");
+  assert.ok(/1ChvUUvht2hUQufHBXF8NgLhW8SwE2ecGV/.test(body), "and the signing address");
   assert.ok(/BEGIN BITCOIN SIGNED MESSAGE/.test(body), "and the signed block itself");
   assert.ok(/paymentcode\.io\/lab/.test(doc.getElementById("ov-body").innerHTML),
     "and points at a verifier the reader can use");
@@ -559,7 +559,7 @@ const ovBody = doc.getElementById("ov-body");
 assert.strictEqual(doc.getElementById("ov-title").textContent, "yellow · pairing", "popup titled by node name");
 assert.strictEqual(window.__lastEC, "H", "pairing QR generated at EC level H, got " + window.__lastEC);
 const av = ovBody.querySelector(".tile .qr-avatar");
-assert.ok(av && /data\/avatars\/PM8TJfHa/.test(av.getAttribute("src")), "avatar overlay in the popup from the local mirror");
+assert.ok(av && /data\/avatars\/PM8TJS2J/.test(av.getAttribute("src")), "avatar overlay in the popup from the local mirror");
 assert.ok(ovBody.querySelector('[data-act="copypairing"][data-id="mainnet-91xtx93-yellow"]'), "popup copy button carries the node id");
 doc.querySelector('.card[data-id="mainnet-kilombino"] [data-act="pair"]').dispatchEvent(new window.Event("click", { bubbles: true }));
 assert.ok(!ovBody.querySelector(".qr-avatar"), "no overlay without a payment code");
@@ -568,7 +568,7 @@ ok("pairing details in a Verify-style popup (EC-H QR, avatar, id-carrying copy)"
 
 // footer: circular operator avatar beside Verify; Disclaimer gone from the nav
 const opAv = doc.querySelector("footer .op-avatar");
-assert.ok(opAv && /data\/avatars\/PM8TJfHa/.test(opAv.getAttribute("src")), "operator avatar in the footer from the local mirror");
+assert.ok(opAv && /data\/avatars\/PM8TJS2J/.test(opAv.getAttribute("src")), "operator avatar in the footer from the local mirror");
 const verifyBtn = doc.querySelector("footer .verify-link");
 assert.ok(opAv.compareDocumentPosition(verifyBtn) & 4, "avatar sits beside (before) the Verify button");
 assert.ok(!doc.querySelector('[data-modal="disclaimer"]'), "Disclaimer removed from the nav");
@@ -663,7 +663,7 @@ ok("footer source-download icon links the instance's own code zip");
   const oneSided = await mountWith({
     generated_at: new Date().toISOString(), interval_minutes: 10,
     nodes: [{ id: "testnet-only", network: "testnet", name: "only", status: "active",
-      paymentCode: "PM8TJfHaHuh5xgKoEbrkWaBtytb8qrRNYdmHzxiFcvacD6HpyyxvSV3VLKYsr6UvMxB4jvJP4xxNvCp2pRY3cJPNmLB2L8nYEttaFVszXSBjXNMy8cD9",
+      paymentCode: "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97",
       payload: { pairing: { type: "dojo.api", version: "1.28.0", apikey: "k", url: "http://" + "b".repeat(56) + ".onion/v2" } } }],
   });
   const od = oneSided.window.document;
@@ -732,7 +732,7 @@ ok("footer source-download icon links the instance's own code zip");
   assert.ok(tile, "the QR sits in a .tile, which is what gives the overlay something to position against");
   const img = tile.querySelector("img.qr-avatar");
   assert.ok(img, "the operator's PayNym avatar overlays the QR, as on a listing");
-  assert.ok(/data\/avatars\/PM8TJfHaHuh5/.test(img.getAttribute("src")),
+  assert.ok(/data\/avatars\/PM8TJS2JxQ5z/.test(img.getAttribute("src")),
     "keyed on the operator's own payment code: " + img.getAttribute("src"));
 
   // Error correction H, not the default M: an overlay eats into the recovery

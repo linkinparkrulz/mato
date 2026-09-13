@@ -219,27 +219,43 @@ ok(create.status === 200 && create.body.submission.status === "pending", "valid 
   ok(!junk.ok && /not a valid payment code/.test(junk.error),
      "valid signature over an undecodable BIP47 line reports the invalid code");
 
-  // Ground truth: a GENUINE wallet export (the maxtannahill node; the apikey
-  // is public). This pins the real signed-text format independently of the
-  // blocks this suite constructs for itself, which is exactly how the
-  // truncated-message bug evaded the previous version of these tests.
+  // Ground truth for the signed-text format, pinned to a FROZEN literal rather
+  // than to a block this suite builds. The distinction is the whole point: the
+  // helpers above and the code under test share an assumption about which text
+  // a signature covers, so a block constructed here would agree with a wrong
+  // assumption and pass. That is exactly how the truncated-message bug evaded
+  // the previous version of these tests. A literal cannot drift with a helper.
+  //
+  // The payer is Bob from the BIP47 specification's own test vectors, so the
+  // payment code and the signing address below are values published in the BIP
+  // text, asserted against it here, and belonging to nobody. The signature was
+  // produced offline over this exact payload by the vector's notification key.
+  //
+  // What this does NOT do, and what the export it replaces did: attest that a
+  // shipping wallet emits this format. Only a real export proves that. Replace
+  // this with one signed by the operator's own wallet when there is one, and
+  // the assertion below keeps its meaning unchanged.
+  const BIP47_VECTOR_CODE = "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97";
+  const BIP47_VECTOR_NOTIFICATION = "1ChvUUvht2hUQufHBXF8NgLhW8SwE2ecGV";
   const realBlock = `-----BEGIN BITCOIN SIGNED MESSAGE-----
-{"pairing":{"type":"dojo.api","version":"1.27.0","apikey":"jaf8fQuGD3QBWLjso6BqU4GEFZ8rW77hXGJfpXNq","url":"http://rwijn27ypfktrhsyrfnob66sjdgpyw6cvlk3ijzyzpj6w36emyk5x5ad.onion/v2"},"explorer":{"type":"explorer.btc_rpc_explorer","url":"http://mempoolhqx4isw62xs7abwphsq7ldayuidyx2v2oethdhhj6mlo2r6ad.onion"}}
+{"pairing":{"type":"dojo.api","version":"1.28.0","apikey":"0000000000000000000000000000000000000000","url":"http://fixtureaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaad.onion/v2"},"explorer":{"type":"explorer.btc_rpc_explorer","url":"http://fixturebbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbd.onion"}}
 
 BIP47:
-PM8TJfHaHuh5xgKoEbrkWaBtytb8qrRNYdmHzxiFcvacD6HpyyxvSV3VLKYsr6UvMxB4jvJP4xxNvCp2pRY3cJPNmLB2L8nYEttaFVszXSBjXNMy8cD9
+PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97
 -----BEGIN BITCOIN SIGNATURE-----
 Version: Bitcoin-qt (1.0)
-Address: 1HmVAPcz3hyETMnu4UzgJTw1mmrNcJKVB
+Address: 1ChvUUvht2hUQufHBXF8NgLhW8SwE2ecGV
 
-H6BZzINZjJQz6LVJIduOpAtXrJUt61dNlnmEf5P6DSmUUOO78YmVOc8bg5biESMFUckk1oAJ/CP9/JLqipPb0fM=
+IK0KCmpnzIvOhU0Op5lDeLD3+Q+wpQ7R1U2h1oCNHu4qEy39XZYMRiIm9l4PtaCeT3XC9SQV6gYBHoCy+51Y0Ds=
 -----END BITCOIN SIGNATURE-----`;
   const { parseSignedBlock, notificationAddress: notifOf } = await import("./crypto.ts");
   const rp = parseSignedBlock(realBlock);
+  ok(rp.paymentCode === BIP47_VECTOR_CODE && rp.address === BIP47_VECTOR_NOTIFICATION,
+     "the frozen fixture carries the published BIP47 vector's code and notification address");
   const real = verifySignedPayload({ signedText: realBlock, expectedMessage: rp.pairingText, expectedAddress: notifOf(rp.paymentCode) });
   ok(real.ok && rp.message === rp.pairingText + "\n\nBIP47:\n" + rp.paymentCode
      && notifOf(rp.paymentCode) === rp.address,
-     "a genuine wallet export verifies: the signature covers json + BIP47 line + code");
+     "a frozen signed block verifies: the signature covers json + BIP47 line + code");
 }
 
 // 5) connection gate: point the probe at a proxy that reports the onion down.
