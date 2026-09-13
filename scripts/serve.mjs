@@ -48,4 +48,8 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => console.log(`The Dojo Bay dev server: http://localhost:${PORT}`));
+// Loopback only, explicitly. Omitting the host binds every interface, which
+// on an onion-only project is the one thing the setup exists to avoid: the
+// dev server would be on the LAN while still printing "localhost". Tor
+// reaches this through the hidden service mapping, not through the bind.
+server.listen(PORT, "127.0.0.1", () => console.log(`The Dojo Bay dev server: http://127.0.0.1:${PORT}`));

@@ -8,26 +8,75 @@ operators submit them through the site's Auth47 flow.
 
 ## Development setup
 
-The front end needs nothing but Node (any static server works too, but
-opening `index.html` from disk is blocked by the browser because everything
-loads over `fetch`):
+This is an onion-only project and the development setup mirrors that rather
+than working around it. Two things follow, and both matter before the first
+command.
+
+**The site is reached over Tor, not over localhost.** `BASE_URL` is the resource
+an Auth47 challenge is signed against, and the backend verifies a returned proof
+against that exact string: same host on another scheme fails, a path underneath
+it fails, and the backend suite asserts both. Point it at `http://localhost:8080`
+and every proof you generate is bound to a resource that is not the site. It
+passes against itself and means nothing against the real instance, which is the
+worst way for a signature check to be wrong. The backend's own suite uses an
+`.onion` for this reason and the installer writes one into the systemd unit.
+
+**Binding to loopback is not the same as being reached there.** nginx and the dev
+server both bind `127.0.0.1`; the Tor daemon maps the hidden service onto that
+bind. The loopback bind is *why* there is no clearnet aspect — it is not a way
+of browsing the site.
+
+### A hidden service for development
+
+Make one of your own, separate from any production instance. In `/etc/tor/torrc`:
 
 ```
-npm run dev            # serves the repo at http://localhost:8080
+HiddenServiceDir /var/lib/tor/dojobay-dev/
+HiddenServicePort 80 127.0.0.1:8080
 ```
 
-The backend runs separately when you are working on submissions, Auth47 or
-moderation:
+Restart Tor and read the address it generates:
+
+```
+sudo systemctl restart tor
+sudo cat /var/lib/tor/dojobay-dev/hostname
+```
+
+Browse that address in Tor Browser. Everything below assumes it as your origin.
+
+### Front end only
+
+The front end needs nothing but Node (opening `index.html` from disk is blocked
+by the browser because everything loads over `fetch`):
+
+```
+npm run dev            # binds 127.0.0.1:8080, which is what Tor maps onto
+```
+
+With the hidden service above pointed at port 8080, this serves the site over
+the onion and nothing else.
+
+### With the backend
+
+The front end calls `/api/...` **same-origin**, and `scripts/serve.mjs` serves
+static files and nothing else — it has no proxy. A backend session therefore
+needs something in front that does, and that is exactly what
+[`deploy/nginx-onion.conf.example`](deploy/nginx-onion.conf.example) already is:
+it proxies `/api/` to `127.0.0.1:8787` and refuses `/server/`. Point the hidden
+service at nginx rather than at the dev server, give nginx the repo as its root,
+and then:
 
 ```
 cd server && npm ci
-PORT=8787 BASE_URL=http://localhost:8080 ADMIN_PAYMENT_CODES=<your PM8...> node index.mjs
+PORT=8787 BASE_URL=http://<your-dev-onion>.onion ADMIN_PAYMENT_CODES=<your PM8...> node index.mjs
 ```
 
-The front end shows **Manage my Dojo** only once `/api/me` answers, so the
-button appearing is your sign the backend is up. `PUBLIC_DATA_DIR` and
-`SERVER_DATA_DIR` override where the public JSON and the submission store
-live; the test suites rely on those to isolate themselves from real data.
+The backend needs Node 24 or newer; `index.mjs` refuses anything older before it
+imports any TypeScript. The front end shows **Manage my Dojo** only once
+`/api/me` answers, so the button appearing is your sign the backend is up.
+`PUBLIC_DATA_DIR` and `SERVER_DATA_DIR` override where the public JSON and the
+submission store live; the test suites rely on those to isolate themselves from
+real data.
 
 ## Project structure
 
@@ -56,6 +105,13 @@ server/
   build-public.mjs         # merges seed + approved store into dojos.json
   store.ts, crypto.ts, paynym.mjs, admin.mjs
   selftest.mjs             # backend test suite (see below)
+gateway/
+  gateway.mjs              # unix-socket service; the only holder of the store key
+  identity.ts              # store identity from a BIP39 mnemonic (STORE_SEED)
+  derive.ts                # BIP47 invoice-address derivation
+  index-state.ts           # index allocation, reclaim, quarantine and retirement
+  pool.mjs                 # air-gapped mode: pre-signed addresses, no live key
+  selftest.mjs             # gateway suite, against the BIP47 spec vectors
 scripts/
   install.mjs              # guided installer; stages talk to installer-ui.mjs
   installer-ui.mjs         # the installer's one interface: a sequential flow
@@ -94,25 +150,28 @@ routine refresh.
 
 ## Tests
 
-Three suites and a type check, and all four must pass before a change ships.
+Four suites and a type check, and all five must pass before a change ships.
 
-From a fresh clone, install twice before running anything: the root install
-brings in TypeScript and `@types/node` for the checker, and the `server` install
-brings in the runtime dependencies the checker also needs to resolve. Skipping
-the second leaves `tsc` reporting missing modules for `@dojo-tools/*` and
-`@bitcoinerlab/secp256k1`, which looks like a broken tree and is not.
+From a fresh clone, install three times before running anything: the root
+install brings in TypeScript and `@types/node` for the checker, and the `server`
+and `gateway` installs bring in the runtime dependencies the checker also needs
+to resolve. Skipping either leaves `tsc` reporting missing modules for
+`@dojo-tools/*` and `@bitcoinerlab/secp256k1`, which looks like a broken tree
+and is not.
 
 ```
-npm install                    # root: typescript + @types/node
-cd server && npm ci && cd ..   # runtime dependencies
-npm run typecheck              # must exit 0
+npm install                     # root: typescript + @types/node
+cd server  && npm ci && cd ..   # runtime dependencies
+cd gateway && npm ci && cd ..   # runtime dependencies
+npm run typecheck               # must exit 0
 node scripts/selftest.mjs
-cd server && node selftest.mjs && cd ..
+cd server  && node selftest.mjs && cd ..
+cd gateway && node selftest.mjs && cd ..
 node scripts/e2e-harness.mjs
 ```
 
-Take a `sha256sum` of `data/dojos.json` and `data/history*.json` before and
-after. A suite that changes instance data is a bug in the suite.
+Take a `sha256sum` of the instance-owned files under `data/` before and after.
+A suite that changes instance data is a bug in the suite.
 
 **Backend** — `cd server && node selftest.mjs`. Spins up the real API against
 temp data directories with a mock Tor proxy and a mock Dojo, and exercises
@@ -124,6 +183,11 @@ idempotence) and the export endpoint.
 
 **Updater** — `node scripts/selftest.mjs`. Offline checks of the
 reachability-detection logic against mock sockets.
+
+**Gateway** — `cd gateway && node selftest.mjs`. Holds the store identity and
+the invoice-address derivation against BIP47's published specification vectors,
+and covers index allocation: reclaim after expiry, the quarantine that keeps a
+reclaimed index out of circulation, and permanent retirement of a paid one.
 
 **Front end** — `scripts/e2e-harness.mjs`, a JSDom harness that boots
 `assets/js/app.js` with stubbed fetch and asserts rendering behaviour:
@@ -143,17 +207,21 @@ One invariant applies to every test run: the instance-owned files must be
 byte-identical before and after. Gate your runs with checksums —
 
 ```
-sha256sum data/dojos.json data/history*.json > /tmp/before.sha
+sha256sum data/seed.json data/version.json > /tmp/before.sha
 # ... run tests ...
 sha256sum -c /tmp/before.sha
 ```
+
+`data/dojos.json` and the history files belong on that list on a running
+instance. A fresh clone has neither, so naming them makes `sha256sum` exit 1 on
+a missing file rather than report a difference.
 
 — and treat any difference as a bug in the test's isolation, not as noise.
 
 ### The same gate, in CI
 
 `.github/workflows/tests.yml` runs everything above on Node 24 for every pull
-request and every push to `main`: both installs, the type check, the three
+request and every push to `main`: all three installs, the type check, the four
 suites, jsdom side-installed outside the workspace, and the checksum comparison.
 Nothing here replaces running it locally. The deploy fires on the same push and
 does not wait for this job, so on a direct push to `main` the result arrives
