@@ -111,6 +111,10 @@ export function makeHandler({ identity, personalCode, indexStore, addressType = 
         return {
           paymentCode: identity.paymentCode(),
           notificationAddress: identity.notificationAddress(),
+          // Where the operator funds this bot. Absent on a gateway started
+          // without a shop identity — the self-test drives derivation with a
+          // throwaway wallet that has no deposit chain and needs none.
+          depositAddress: shop ? shop.state().networks[network]?.depositAddress ?? null : null,
           personalCode: receiver(),
           type: addressType,
           network,
@@ -252,7 +256,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   if (created) console.log("  generated a new shop identity; back up the seed words from the admin panel");
   console.log(`  network             ${state.active}`);
   console.log(`  store payment code  ${identity.paymentCode()}`);
-  console.log(`  fund / verify at    ${identity.notificationAddress()}`);
+  // Two lines, not one. They were one line while the funding target was wrongly
+  // the notification address; they are different addresses doing different jobs.
+  console.log(`  fund at             ${block.depositAddress}`);
+  console.log(`  verify against      ${identity.notificationAddress()}`);
   console.log(personal
     ? `  paying into         ${personal.slice(0, 16)}…`
     : "  paying into         (no receiver yet — bind one in the admin panel; addresses are refused until then)");

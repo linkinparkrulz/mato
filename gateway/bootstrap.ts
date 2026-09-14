@@ -30,9 +30,18 @@
 // than pretended to be testnet4 with different-looking addresses.
 //
 // The bot does hold a little money, once per network. Before a stock wallet will
-// recognise the pair, the sender has to announce it in an on-chain notification
-// transaction, and that costs a fee. The operator funds the bot's own
-// notification address, it spends that once, and it never needs funding again.
+// recognise the pair, the SENDER has to announce it in an on-chain notification
+// transaction: it spends an input of its own and pays an output to the
+// RECEIVER's notification address. That costs a fee, so the bot needs an
+// ordinary chain it can spend from — its deposit address, see deposit.ts. The
+// operator funds that, the bot spends it once to make the announcement, and it
+// never needs funding again.
+//
+// Not its own notification address, which is a different role: that is where
+// somebody else would announce a pair TO this bot, and where a customer checks
+// the signature on an address the shop quoted. The bot holds that key too, so
+// funding it there would work, which is precisely why the two are worth keeping
+// apart in writing.
 
 import { randomBytes } from "node:crypto";
 import path from "node:path";
@@ -40,6 +49,7 @@ import { mkdir, readFile, writeFile, rename, chmod } from "node:fs/promises";
 import * as bip39 from "bip39";
 import { StoreIdentity } from "./identity.ts";
 import { publicCode } from "./derive.ts";
+import { depositAddress } from "./deposit.ts";
 
 export const SEED_FILE = "store-seed.json";
 export const STATE_FILE = "store-identity.json";
@@ -69,8 +79,17 @@ export interface DojoChoice {
 /** One network's half of the shop's identity. Never carries the mnemonic. */
 export interface NetworkIdentity {
   paymentCode: string;
-  /** Where the operator funds the bot, and what its payment code resolves to. */
+  /**
+   * What this payment code resolves to: where another wallet would announce a
+   * pair to this bot, and the address a customer checks its signatures against.
+   * NOT where the operator sends money — that is depositAddress.
+   */
   notificationAddress: string;
+  /**
+   * The bot's own spendable address, and the only money it ever holds. Funded
+   * once per network to pay for the notification transaction. See deposit.ts.
+   */
+  depositAddress: string;
   /** The operator's personal payment code on THIS network: the RECEIVER. */
   receiverPaymentCode: string | null;
   /**
@@ -128,10 +147,21 @@ export function identityFor(seed: SeedDoc, network: Network): StoreIdentity {
   return StoreIdentity.fromMnemonic(seed.mnemonic, seed.passphrase || "", network);
 }
 
-function blankBlock(id: StoreIdentity): NetworkIdentity {
+/** The BIP39 seed bytes, for the one chain that is not a BIP47 derivation. */
+function seedBytes(seed: SeedDoc): Uint8Array {
+  return bip39.mnemonicToSeedSync(seed.mnemonic.trim().replace(/\s+/g, " "), seed.passphrase || "");
+}
+
+/** The bot's funding address on one network. Public; derived, never stored as truth. */
+export function depositFor(seed: SeedDoc, network: Network): string {
+  return depositAddress(seedBytes(seed), network);
+}
+
+function blankBlock(id: StoreIdentity, deposit: string): NetworkIdentity {
   return {
     paymentCode: id.paymentCode(),
     notificationAddress: id.notificationAddress(),
+    depositAddress: deposit,
     receiverPaymentCode: null,
     receiverNotificationAddress: null,
     nymName: null, nymId: null,
@@ -175,7 +205,7 @@ export async function loadOrCreate(dataDir: string): Promise<{
       active: "bitcoin",
       createdAt: seed.createdAt,
       networks: Object.fromEntries(
-        NETWORKS.map((n) => [n, blankBlock(identities[n])]),
+        NETWORKS.map((n) => [n, blankBlock(identities[n], depositFor(seed!, n))]),
       ) as Record<Network, NetworkIdentity>,
     };
     await writeAtomic(statePath, JSON.stringify(state, null, 2) + "\n", 0o644);
@@ -200,7 +230,20 @@ export async function loadOrCreate(dataDir: string): Promise<{
     let grew = false;
     for (const n of NETWORKS) {
       if (!state.networks?.[n]) {
-        state.networks = { ...(state.networks || {}), [n]: blankBlock(identities[n]) } as Record<Network, NetworkIdentity>;
+        state.networks = {
+          ...(state.networks || {}),
+          [n]: blankBlock(identities[n], depositFor(seed!, n)),
+        } as Record<Network, NetworkIdentity>;
+        grew = true;
+        continue;
+      }
+      // A state written before the shop had a deposit chain gains one here. It
+      // is a derived value, so backfilling is not a migration in any meaningful
+      // sense: the address was always implied by the seed, it simply was not
+      // written down. Nothing already recorded is touched, and the payment-code
+      // guard above has already established that this IS the right seed.
+      if (!state.networks[n].depositAddress) {
+        state.networks[n].depositAddress = depositFor(seed!, n);
         grew = true;
       }
     }

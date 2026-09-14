@@ -1375,17 +1375,31 @@ async function loadJSON(url){
       '</div>'+
       '<div class="acard">'+
         '<p style="font-size:12.5px">Payment code <code class="pc-chip" data-copy="'+esc(b.paymentCode)+'">'+chip(b.paymentCode)+'</code></p>'+
-        // The funding prompt. It is the one thing standing between a configured
-        // shop and a working one, so it is stated as an instruction rather than
-        // a status, and it disappears the moment the notification is on-chain.
+        // The funding prompt, pointed at the DEPOSIT address. A notification
+        // transaction spends an input the sender owns; this wallet is the
+        // sender, so this is the address it needs money at. Its own notification
+        // address is a different thing and is shown below as that.
+        //
+        // The amount is named rather than left as "a small amount": one input,
+        // one dust output, an OP_RETURN and change is around 260 vB, so the
+        // figure is a fee rate an operator can act on instead of guessing and
+        // either underfunding or overpaying into a wallet they cannot easily
+        // empty. Stated as an instruction, and it goes the moment the
+        // notification is on-chain.
         (rd.needsNotification
           ? '<div style="border:1px solid var(--down);border-radius:8px;padding:10px 12px;margin:10px 0">'+
             '<b>This wallet needs a small amount of bitcoin.</b> '+
             'It has to publish one BIP47 notification transaction so your own wallet starts watching '+
-            'for the addresses this shop derives. That costs a fee, once, and never again. Send a small '+
-            'amount to:<br><code>'+esc(b.notificationAddress)+'</code>'+
-            '<div id="shop-qr" data-qr="'+esc(b.notificationAddress)+'" style="margin-top:8px"></div></div>'
+            'for the addresses this shop derives. That costs a fee, once, and never again. Send '+
+            (net==='bitcoin'?'about 10,000 sats':'a faucet drip')+' to:'+
+            '<br><code>'+esc(b.depositAddress||'')+'</code>'+
+            '<div id="shop-qr" data-qr="'+esc(b.depositAddress||'')+'" style="margin-top:8px"></div></div>'
           : '<p style="font-size:12.5px;color:var(--faint)">Notification sent \u2014 <code>'+esc(String(b.notificationTxid).slice(0,16))+'\u2026</code></p>')+
+        // The shop's own notification address, labelled as what it is for. It
+        // was the funding target once, wrongly, so leaving it unlabelled invites
+        // the same mistake back.
+        '<p style="font-size:12.5px;color:var(--faint)">Signatures on this shop\u2019s addresses verify against '+
+          '<code>'+esc(b.notificationAddress)+'</code></p>'+
         // The receiver, shown WITH the address it derives. A payment code says
         // nothing about which chain it is for, so the derived address is the
         // only way an operator can see they pasted a mainnet code into testnet.

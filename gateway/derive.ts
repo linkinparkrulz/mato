@@ -95,7 +95,15 @@ const bip47 = BIP47Factory(ecc);
  */
 const LIB_NETWORK: Record<string, string> = { bitcoin: "bitcoin", testnet4: "testnet", regtest: "regtest" };
 
-function libNet(network: string) {
+/**
+ * The library's network object for one of our network names.
+ *
+ * Exported because the deposit chain (deposit.ts) needs the same object for its
+ * bip32 version bytes, and a second copy of this mapping is exactly the bug the
+ * comment above is written to prevent: two places deciding what testnet4 means
+ * can disagree, and the disagreement is an address on the wrong chain.
+ */
+export function libNetwork(network: string) {
   const name = LIB_NETWORK[network];
   if (!name) throw new Error(`unknown network ${JSON.stringify(network)}: expected one of ${Object.keys(LIB_NETWORK).join(", ")}`);
   return utils.networks[name];
@@ -103,12 +111,12 @@ function libNet(network: string) {
 
 /** Load the store's own identity from its BIP39 seed. Holds private keys. */
 export function storeIdentity(seed: Uint8Array, { segwit = false, network = "bitcoin" } = {}): PaymentCodePrivate {
-  return bip47.fromSeed(seed, segwit, libNet(network));
+  return bip47.fromSeed(seed, segwit, libNetwork(network));
 }
 
 /** Parse a counterparty's payment code. Public material only. */
 export function publicCode(paymentCode: string, network: string = "bitcoin"): PaymentCodePublic {
-  return bip47.fromBase58(paymentCode, libNet(network));
+  return bip47.fromBase58(paymentCode, libNetwork(network));
 }
 
 /**
@@ -153,7 +161,7 @@ export function spendingKeyFor(
 
 /** The address a public key encodes to, for checking a derivation end to end. */
 export function addressOfPubkey(pubkey: Uint8Array, type: AddressType, network: string = "bitcoin"): string {
-  const net = libNet(network);
+  const net = libNetwork(network);
   switch (type) {
     case "p2pkh": return utils.getP2pkhAddress(pubkey, net);
     case "p2sh": return utils.getP2shAddress(pubkey, net);

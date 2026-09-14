@@ -617,6 +617,45 @@ console.log("\nfirst-run identity");
     assert.equal(state.networks.testnet4.dojo, null);
   });
 
+  await testAsync("every network gets a funding address, and it is not the notification one", async () => {
+    const { state } = await loadOrCreate(dir);
+    const main = state.networks.bitcoin, tnet = state.networks.testnet4;
+    // The exact confusion this part exists to fix. A notification transaction
+    // SPENDS an input the bot owns and PAYS the receiver's notification address;
+    // funding the bot at its own notification address happens to work, because
+    // the bot holds that key too, and is the wrong shape. Asserted rather than
+    // eyeballed, because "it works" is what made it hard to see.
+    assert.notEqual(main.depositAddress, main.notificationAddress);
+    assert.notEqual(tnet.depositAddress, tnet.notificationAddress);
+    assert.notEqual(main.depositAddress, tnet.depositAddress);
+    // Segwit, and encoded for its own chain.
+    assert.match(main.depositAddress, /^bc1q/);
+    assert.match(tnet.depositAddress, /^tb1q/);
+  });
+
+  await testAsync("a state written before the deposit chain gains one without losing anything", async () => {
+    const { state } = await loadOrCreate(dir);
+    const before = JSON.parse(JSON.stringify(state));
+    // What an already-deployed shop's file looks like: everything else intact,
+    // no deposit address, because the address was always implied by the seed and
+    // simply was not written down.
+    const stale = JSON.parse(JSON.stringify(state));
+    for (const n of NETWORKS) delete stale.networks[n].depositAddress;
+    await writeFile(path.join(dir, STATE_FILE), JSON.stringify(stale, null, 2) + "\n");
+
+    const { state: healed } = await loadOrCreate(dir);
+    for (const n of NETWORKS) {
+      assert.equal(healed.networks[n].depositAddress, before.networks[n].depositAddress,
+        "backfill must reproduce the address, not invent a new one");
+      // Nothing else in the block moved.
+      assert.deepEqual({ ...healed.networks[n], depositAddress: undefined },
+        { ...before.networks[n], depositAddress: undefined });
+    }
+    // And it was written back, not recomputed on every load.
+    const raw = JSON.parse(await readFile(path.join(dir, STATE_FILE), "utf8"));
+    assert.equal(raw.networks.bitcoin.depositAddress, before.networks.bitcoin.depositAddress);
+  });
+
   await testAsync("a swapped seed is refused on EITHER network, not just the active one", async () => {
     const swapped = await mkdtemp(path.join(os.tmpdir(), "mise-identity-"));
     const { state } = await loadOrCreate(swapped);
@@ -629,6 +668,51 @@ console.log("\nfirst-run identity");
   });
 
   await rm(dir, { recursive: true, force: true });
+}
+
+// ---- the bot's own spendable chain ------------------------------------------
+// Checked against the BIP84 published vectors rather than against our own
+// output. Our derivation agreeing with itself establishes nothing an operator
+// cares about; what they need is that the twelve words typed into a stock wallet
+// find the money, and only an independent vector can say that.
+console.log("\nthe bot's deposit chain");
+{
+  const { depositAddress, depositPrivateKey, depositAccountPath } = await import("./deposit.ts");
+  const { addressOfPubkey, pubkeyOf } = await import("./derive.ts");
+
+  // BIP84 test vector mnemonic, and its published first receiving addresses.
+  const VECTOR = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+  const vectorSeed = bip39.mnemonicToSeedSync(VECTOR);
+
+  test("m/84'/0'/0'/0/0 matches the BIP84 specification vector", () => {
+    assert.equal(depositAddress(vectorSeed, "bitcoin"), "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu");
+  });
+
+  test("the testnet chain is coin type 1, and encodes for testnet", () => {
+    assert.equal(depositAccountPath("testnet4"), "m/84'/1'/0'");
+    assert.equal(depositAddress(vectorSeed, "testnet4"), "tb1q6rz28mcfaxtmd6v789l9rrlrusdprr9pqcpvkl");
+  });
+
+  test("receive and change are different chains, and indices are different addresses", () => {
+    const recv0 = depositAddress(vectorSeed, "bitcoin");
+    const chg0 = depositAddress(vectorSeed, "bitcoin", { chain: "change" });
+    const recv1 = depositAddress(vectorSeed, "bitcoin", { index: 1 });
+    assert.notEqual(recv0, chg0, "change must not land back on the funded address");
+    assert.notEqual(recv0, recv1);
+  });
+
+  test("the private key is for the address that was shown", () => {
+    // The property that matters: the bot can actually spend what it is sent.
+    // A path that derives a plausible address and an unrelated key would look
+    // correct everywhere except at the moment of signing.
+    const priv = depositPrivateKey(vectorSeed, "bitcoin");
+    assert.equal(addressOfPubkey(pubkeyOf(priv), "p2wpkh", "bitcoin"), depositAddress(vectorSeed, "bitcoin"));
+  });
+
+  test("an unknown network is refused rather than defaulted", () => {
+    assert.throws(() => depositAddress(vectorSeed, "signet"), /unknown network/);
+    assert.throws(() => depositAddress(vectorSeed, "bitcoin", { index: -1 }), /non-negative/);
+  });
 }
 
 server.close();
