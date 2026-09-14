@@ -431,14 +431,14 @@ console.log("\nper-network index state");
 {
   const dir = await mkdtemp(path.join(os.tmpdir(), "mise-ix-net-"));
   const main = new IndexStore(dir, "bitcoin");
-  const test = new IndexStore(dir, "testnet");
+  const test = new IndexStore(dir, "testnet4");
 
   await testAsync("each chain writes its own file", async () => {
     await main.allocate();
     await test.allocate();
     assert.notEqual(main.file, test.file);
     assert.match(main.file, /index-state\.bitcoin\.json$/);
-    assert.match(test.file, /index-state\.testnet\.json$/);
+    assert.match(test.file, /index-state\.testnet4\.json$/);
     await stat(main.file);
     await stat(test.file);
   });
@@ -478,7 +478,7 @@ console.log("\nfirst-run identity");
     const { state, created } = await loadOrCreate(dir);
     assert.equal(created, true);
     assert.deepEqual(Object.keys(state.networks).sort(), [...NETWORKS].sort());
-    const main = state.networks.bitcoin, tnet = state.networks.testnet;
+    const main = state.networks.bitcoin, tnet = state.networks.testnet4;
     assert.notEqual(main.paymentCode, tnet.paymentCode);
     assert.notEqual(main.notificationAddress, tnet.notificationAddress);
     // Encoded for their own chain: mainnet P2PKH starts 1, testnet m or n.
@@ -522,10 +522,10 @@ console.log("\nfirst-run identity");
     assert.equal(readiness(state, "bitcoin").needsReceiver, true);
     state = bindReceiver(state, "bitcoin", BOB_CODE);
     assert.equal(state.networks.bitcoin.receiverPaymentCode, BOB_CODE);
-    assert.equal(state.networks.testnet.receiverPaymentCode, null,
+    assert.equal(state.networks.testnet4.receiverPaymentCode, null,
       "binding mainnet must not bind testnet: they are different wallets");
     assert.equal(readiness(state, "bitcoin").needsReceiver, false);
-    assert.equal(readiness(state, "testnet").needsReceiver, true);
+    assert.equal(readiness(state, "testnet4").needsReceiver, true);
     await saveState(dir, state);
   });
 
@@ -537,7 +537,7 @@ console.log("\nfirst-run identity");
     // that against their wallet — that is the only check there is.
     const { state } = await loadOrCreate(dir);
     const onMain = bindReceiver(state, "bitcoin", BOB_CODE).networks.bitcoin;
-    const onTest = bindReceiver(state, "testnet", BOB_CODE).networks.testnet;
+    const onTest = bindReceiver(state, "testnet4", BOB_CODE).networks.testnet4;
     assert.equal(onMain.receiverPaymentCode, onTest.receiverPaymentCode, "same code, accepted on both");
     assert.notEqual(onMain.receiverNotificationAddress, onTest.receiverNotificationAddress);
     assert.match(onMain.receiverNotificationAddress, /^1/);
@@ -568,15 +568,15 @@ console.log("\nfirst-run identity");
     assert.equal(bindReceiver(state, "bitcoin", BOB_CODE).networks.bitcoin.receiverPaymentCode, BOB_CODE);
     assert.equal(readiness(state, "bitcoin").ready, true);
     // ...and the other network is untouched by any of it.
-    assert.equal(readiness(state, "testnet").ready, false);
+    assert.equal(readiness(state, "testnet4").ready, false);
   });
 
   await testAsync("switching the active network destroys nothing on either side", async () => {
     let { state } = await loadOrCreate(dir);
     state = bindReceiver(state, "bitcoin", BOB_CODE);
     const before = JSON.stringify(state.networks);
-    state = setActive(state, "testnet");
-    assert.equal(state.active, "testnet");
+    state = setActive(state, "testnet4");
+    assert.equal(state.active, "testnet4");
     assert.equal(JSON.stringify(state.networks), before, "a toggle is a view, not an edit");
     // The union type already rejects this at compile time; the runtime guard is
     // for callers that arrive as JSON over the socket, where types do not apply.
@@ -592,7 +592,7 @@ console.log("\nfirst-run identity");
     assert.equal(state.networks.bitcoin.dojo.source, "directory",
       "the panel warns on this, so it has to survive the round trip");
     assert.equal(readiness(state, "bitcoin").needsDojo, false);
-    assert.equal(state.networks.testnet.dojo, null);
+    assert.equal(state.networks.testnet4.dojo, null);
   });
 
   await testAsync("a swapped seed is refused on EITHER network, not just the active one", async () => {

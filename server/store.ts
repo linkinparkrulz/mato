@@ -257,7 +257,7 @@ export const store = {
    * stops a testnet address matching a mainnet order — which would mark a real
    * order paid off the back of worthless coins.
    */
-  async invoiceByAddress(address: string, network: "bitcoin" | "testnet"): Promise<InvoiceRecord | null> {
+  async invoiceByAddress(address: string, network: "bitcoin" | "testnet4"): Promise<InvoiceRecord | null> {
     if (!address || !network) return null;
     return Object.values((await load()).invoices || {})
       .find((i) => i.address === address && i.network === network) || null;
@@ -298,8 +298,8 @@ export const store = {
     // the same address index on either, so an invoice that does not say is an
     // invoice the watcher cannot look for: it would search one chain for an
     // address that only exists on the other and simply never see the payment.
-    if (rec.network !== "bitcoin" && rec.network !== "testnet") {
-      throw new Error(`refusing to store invoice ${rec.id}: network must be "bitcoin" or "testnet", ` +
+    if (rec.network !== "bitcoin" && rec.network !== "testnet4") {
+      throw new Error(`refusing to store invoice ${rec.id}: network must be "bitcoin" or "testnet4", ` +
         `not ${JSON.stringify(rec.network)}. An invoice that does not name its chain cannot be settled.`);
     }
     const signed = rec.address_record;

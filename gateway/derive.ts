@@ -79,14 +79,36 @@ export function parseAddressType(value: string | undefined | null): AddressType 
 
 const bip47 = BIP47Factory(ecc);
 
+/**
+ * Our network names to the library's.
+ *
+ * testnet4 (BIP-94) uses testnet3's address version bytes, bech32 HRP and coin
+ * type, so the library needs no testnet4 entry and derivation is unchanged
+ * between them. We still name the chain testnet4 everywhere else, because that
+ * sameness is exactly the hazard: an address is valid on both testnets, so
+ * nothing catches a shop configured for one talking to a node on the other, and
+ * the coins do not carry across. The records have to say which chain they mean
+ * since the addresses cannot.
+ *
+ * This is the only place the two vocabularies meet. Anything outside derive.ts
+ * speaks our names.
+ */
+const LIB_NETWORK: Record<string, string> = { bitcoin: "bitcoin", testnet4: "testnet", regtest: "regtest" };
+
+function libNet(network: string) {
+  const name = LIB_NETWORK[network];
+  if (!name) throw new Error(`unknown network ${JSON.stringify(network)}: expected one of ${Object.keys(LIB_NETWORK).join(", ")}`);
+  return utils.networks[name];
+}
+
 /** Load the store's own identity from its BIP39 seed. Holds private keys. */
 export function storeIdentity(seed: Uint8Array, { segwit = false, network = "bitcoin" } = {}): PaymentCodePrivate {
-  return bip47.fromSeed(seed, segwit, utils.networks[network]);
+  return bip47.fromSeed(seed, segwit, libNet(network));
 }
 
 /** Parse a counterparty's payment code. Public material only. */
 export function publicCode(paymentCode: string, network: string = "bitcoin"): PaymentCodePublic {
-  return bip47.fromBase58(paymentCode, utils.networks[network]);
+  return bip47.fromBase58(paymentCode, libNet(network));
 }
 
 /**
@@ -131,7 +153,7 @@ export function spendingKeyFor(
 
 /** The address a public key encodes to, for checking a derivation end to end. */
 export function addressOfPubkey(pubkey: Uint8Array, type: AddressType, network: string = "bitcoin"): string {
-  const net = utils.networks[network];
+  const net = libNet(network);
   switch (type) {
     case "p2pkh": return utils.getP2pkhAddress(pubkey, net);
     case "p2sh": return utils.getP2shAddress(pubkey, net);

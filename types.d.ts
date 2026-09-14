@@ -212,7 +212,7 @@ export interface InvoiceRecord {
    * payment watcher would look for a testnet address on mainnet, and
    * invoiceByAddress could hand back the wrong order.
    */
-  network: "bitcoin" | "testnet";
+  network: "bitcoin" | "testnet4";
   product_id: string;
   quantity: number;
   status: InvoiceStatus;

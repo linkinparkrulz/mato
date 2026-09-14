@@ -13,13 +13,21 @@
 // ONE SEED, BOTH NETWORKS. The same twelve words derive a distinct identity per
 // network — different payment code, different notification address — so both
 // are created at setup and the operator switches between them. One backup
-// covers both, and testnet is a real chain to rehearse the notification
+// covers both, and testnet4 is a real chain to rehearse the notification
 // transaction on before mainnet money is involved.
 //
-// regtest is deliberately absent. It derives identically to testnet (they share
-// version bytes), so a regtest deployment runs the testnet identity against a
-// regtest node; giving it its own block would be a second name for the same
-// keys and a second set of state to disagree with the first.
+// The test chain is testnet4. It shares testnet3's address version bytes, bech32
+// HRP and coin type, so derivation is identical between them and the library
+// needs no testnet4 entry — see LIB_NETWORK in derive.ts, the one place the two
+// vocabularies meet. The records say testnet4 anyway, because that sameness is
+// the hazard: an address is valid on both testnets and the coins are not, so
+// nothing but the record itself says which chain a payment was quoted for.
+//
+// regtest is absent as a block. Its notification addresses match testnet's (same
+// p2pkh version byte), but its invoice addresses do NOT: regtest's bech32 HRP is
+// bcrt, testnet's is tb, and invoice addresses have been segwit since ea6e193.
+// So a regtest deployment is its own chain in practice; it is left out rather
+// than pretended to be testnet4 with different-looking addresses.
 //
 // The bot does hold a little money, once per network. Before a stock wallet will
 // recognise the pair, the sender has to announce it in an on-chain notification
@@ -38,7 +46,7 @@ export const STATE_FILE = "store-identity.json";
 const SEED_MODE = 0o600;
 
 /** The networks a shop keeps an identity for. */
-export const NETWORKS = ["bitcoin", "testnet"] as const;
+export const NETWORKS = ["bitcoin", "testnet4"] as const;
 export type Network = (typeof NETWORKS)[number];
 
 export function isNetwork(value: unknown): value is Network {

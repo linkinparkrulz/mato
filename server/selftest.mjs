@@ -2129,30 +2129,30 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   // address index exists on both. These are the checks that stop the two being
   // confused, which is the kind of mistake that marks a real order paid.
   await refuses(() => shop.putInvoice({ ...baseInvoice, id: "n1", network: undefined }),
-    /network must be "bitcoin" or "testnet"/, "an invoice with no network is refused");
+    /network must be "bitcoin" or "testnet4"/, "an invoice with no network is refused");
   // Cast: the union rejects this at compile time, but invoices arrive as JSON
   // from the checkout path where types do not apply, so the runtime guard is the
   // one that actually holds.
   const signet = /** @type {any} */ ("signet");
   await refuses(() => shop.putInvoice({ ...baseInvoice, id: "n2", network: signet }),
-    /network must be "bitcoin" or "testnet"/, "an invoice on a network this shop does not keep is refused");
+    /network must be "bitcoin" or "testnet4"/, "an invoice on a network this shop does not keep is refused");
 
   {
     // Same address index on both chains: legitimate, and it must not collide.
-    const tnetAddr = { ...signedAddr, address: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx", network: "testnet" };
+    const tnetAddr = { ...signedAddr, address: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx", network: "testnet4" };
     const tnet = await shop.putInvoice({
-      ...baseInvoice, id: "n3", network: "testnet",
+      ...baseInvoice, id: "n3", network: "testnet4",
       address_record: tnetAddr, address: tnetAddr.address, address_index: 0,
     });
     ok(tnet.id === "n3" && tnet.address_index === 0,
        "the same address index stores on both chains, because they are different chains");
     const onMain = await shop.invoiceByAddress(signedAddr.address, "bitcoin");
-    const onTest = await shop.invoiceByAddress(tnetAddr.address, "testnet");
-    ok(onMain?.network === "bitcoin" && onTest?.network === "testnet" && onMain.id !== onTest.id,
+    const onTest = await shop.invoiceByAddress(tnetAddr.address, "testnet4");
+    ok(onMain?.network === "bitcoin" && onTest?.network === "testnet4" && onMain.id !== onTest.id,
        "each chain's address resolves to its own invoice");
     ok((await shop.invoiceByAddress(tnetAddr.address, "bitcoin")) === null,
        "a testnet address does not match on mainnet: worthless coins cannot settle a real order");
-    ok((await shop.invoiceByAddress(signedAddr.address, "testnet")) === null,
+    ok((await shop.invoiceByAddress(signedAddr.address, "testnet4")) === null,
        "and the reverse, so a lookup without the chain cannot quietly pick either");
   }
 }
