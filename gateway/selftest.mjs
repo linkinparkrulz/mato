@@ -408,19 +408,24 @@ test("a nonsensical pool range is refused", () => {
 console.log("\nfirst-run identity");
 {
   const {
-    loadOrCreate, saveState, revealMnemonic, bindReceiver, readiness, newMnemonic, SEED_FILE, STATE_FILE,
+    loadOrCreate, saveState, revealMnemonic, bindReceiver, setDojo, setActive,
+    readiness, newMnemonic, NETWORKS, SEED_FILE, STATE_FILE,
   } = await import("./bootstrap.ts");
   const { readFile, writeFile } = await import("node:fs/promises");
 
   const dir = await mkdtemp(path.join(os.tmpdir(), "mise-identity-"));
 
-  await testAsync("a fresh directory gets an identity, and reports that it made one", async () => {
+  await testAsync("one seed yields an identity on every network, distinct on each", async () => {
     const { state, created } = await loadOrCreate(dir);
     assert.equal(created, true);
-    assert.ok(state.paymentCode.startsWith("PM8T"), state.paymentCode);
-    assert.ok(state.notificationAddress.length > 0);
-    assert.equal(state.receiverPaymentCode, null);
-    assert.equal(state.notificationTxid, null);
+    assert.deepEqual(Object.keys(state.networks).sort(), [...NETWORKS].sort());
+    const main = state.networks.bitcoin, tnet = state.networks.testnet;
+    assert.notEqual(main.paymentCode, tnet.paymentCode);
+    assert.notEqual(main.notificationAddress, tnet.notificationAddress);
+    // Encoded for their own chain: mainnet P2PKH starts 1, testnet m or n.
+    assert.match(main.notificationAddress, /^1/);
+    assert.match(tnet.notificationAddress, /^[mn]/);
+    assert.equal(state.active, "bitcoin");
   });
 
   await testAsync("the generated mnemonic is twelve valid BIP39 words", async () => {
@@ -435,11 +440,13 @@ console.log("\nfirst-run identity");
     assert.equal(st.mode & 0o777, 0o600, (st.mode & 0o777).toString(8));
   });
 
-  await testAsync("a second load returns the same identity and does not rewrite the seed", async () => {
+  await testAsync("a second load returns the same identities and does not rewrite the seed", async () => {
     const first = await readFile(path.join(dir, SEED_FILE), "utf8");
     const a = await loadOrCreate(dir);
     const b = await loadOrCreate(dir);
-    assert.equal(a.state.paymentCode, b.state.paymentCode);
+    for (const n of NETWORKS) {
+      assert.equal(a.state.networks[n].paymentCode, b.state.networks[n].paymentCode);
+    }
     assert.equal(b.created, false);
     assert.equal(await readFile(path.join(dir, SEED_FILE), "utf8"), first);
   });
@@ -451,43 +458,92 @@ console.log("\nfirst-run identity");
     for (const w of words.split(/\s+/)) assert.ok(!new RegExp(`"[^"]*\\b${w}\\b`).test(raw), w);
   });
 
-  await testAsync("binding the operator's code records it, and readiness moves on", async () => {
+  await testAsync("binding a receiver touches only that network", async () => {
     let { state } = await loadOrCreate(dir);
-    assert.deepEqual(readiness(state), { ready: false, needsReceiver: true, needsNotification: true });
-    state = bindReceiver(state, BOB_CODE);
-    assert.equal(state.receiverPaymentCode, BOB_CODE);
-    assert.deepEqual(readiness(state), { ready: false, needsReceiver: false, needsNotification: true });
+    assert.equal(readiness(state, "bitcoin").needsReceiver, true);
+    state = bindReceiver(state, "bitcoin", BOB_CODE);
+    assert.equal(state.networks.bitcoin.receiverPaymentCode, BOB_CODE);
+    assert.equal(state.networks.testnet.receiverPaymentCode, null,
+      "binding mainnet must not bind testnet: they are different wallets");
+    assert.equal(readiness(state, "bitcoin").needsReceiver, false);
+    assert.equal(readiness(state, "testnet").needsReceiver, true);
     await saveState(dir, state);
+  });
+
+  await testAsync("a payment code carries no network, so binding records what it derives", async () => {
+    // This is the uncomfortable truth the panel has to work around: the SAME
+    // code parses on both chains and simply derives a different notification
+    // address. A mainnet code pasted into the testnet slot cannot be rejected.
+    // So the binding records the address it derives, and the operator confirms
+    // that against their wallet — that is the only check there is.
+    const { state } = await loadOrCreate(dir);
+    const onMain = bindReceiver(state, "bitcoin", BOB_CODE).networks.bitcoin;
+    const onTest = bindReceiver(state, "testnet", BOB_CODE).networks.testnet;
+    assert.equal(onMain.receiverPaymentCode, onTest.receiverPaymentCode, "same code, accepted on both");
+    assert.notEqual(onMain.receiverNotificationAddress, onTest.receiverNotificationAddress);
+    assert.match(onMain.receiverNotificationAddress, /^1/);
+    assert.match(onTest.receiverNotificationAddress, /^[mn]/);
+  });
+
+  await testAsync("text that is not a payment code at all is still refused", async () => {
+    const { state } = await loadOrCreate(dir);
+    assert.throws(() => bindReceiver(state, "bitcoin", "PM8Tnotacode"), /not a usable BIP47 payment code/);
+    assert.throws(() => bindReceiver(state, "bitcoin", ""), /not a usable BIP47 payment code/);
+    assert.throws(() => bindReceiver(state, "bitcoin", "1ChvUUvht2hUQufHBXF8NgLhW8SwE2ecGV"),
+      /not a usable BIP47 payment code/);
   });
 
   await testAsync("a shop cannot make itself its own receiver", async () => {
     const { state } = await loadOrCreate(dir);
-    assert.throws(() => bindReceiver(state, state.paymentCode), /cannot be the shop's own/);
+    assert.throws(() => bindReceiver(state, "bitcoin", state.networks.bitcoin.paymentCode),
+      /cannot be the shop's own/);
   });
 
-  await testAsync("garbage is refused by parsing it, not by looking at its shape", async () => {
-    const { state } = await loadOrCreate(dir);
-    assert.throws(() => bindReceiver(state, "PM8Tnotacode"), /not a usable BIP47 payment code/);
-    assert.throws(() => bindReceiver(state, ""), /not a usable BIP47 payment code/);
-  });
-
-  await testAsync("the receiver cannot change once the notification is on-chain", async () => {
+  await testAsync("the receiver cannot change once that network's notification is on-chain", async () => {
     let { state } = await loadOrCreate(dir);
-    state = { ...state, notificationTxid: "f".repeat(64), notificationSentAt: new Date().toISOString() };
-    assert.throws(() => bindReceiver(state, ALICE_CODE), /already on-chain/);
+    state = bindReceiver(state, "bitcoin", BOB_CODE);
+    state = { ...state, networks: { ...state.networks, bitcoin: {
+      ...state.networks.bitcoin, notificationTxid: "f".repeat(64), notificationSentAt: new Date().toISOString() } } };
+    assert.throws(() => bindReceiver(state, "bitcoin", ALICE_CODE), /already on-chain/);
     // Re-binding the SAME receiver is not a change, so it is allowed.
-    assert.equal(bindReceiver(state, state.receiverPaymentCode).receiverPaymentCode, state.receiverPaymentCode);
-    assert.equal(readiness(state).ready, true);
+    assert.equal(bindReceiver(state, "bitcoin", BOB_CODE).networks.bitcoin.receiverPaymentCode, BOB_CODE);
+    assert.equal(readiness(state, "bitcoin").ready, true);
+    // ...and the other network is untouched by any of it.
+    assert.equal(readiness(state, "testnet").ready, false);
   });
 
-  await testAsync("a swapped seed is refused rather than silently deriving a new chain", async () => {
+  await testAsync("switching the active network destroys nothing on either side", async () => {
+    let { state } = await loadOrCreate(dir);
+    state = bindReceiver(state, "bitcoin", BOB_CODE);
+    const before = JSON.stringify(state.networks);
+    state = setActive(state, "testnet");
+    assert.equal(state.active, "testnet");
+    assert.equal(JSON.stringify(state.networks), before, "a toggle is a view, not an edit");
+    // The union type already rejects this at compile time; the runtime guard is
+    // for callers that arrive as JSON over the socket, where types do not apply.
+    const bogus = /** @type {any} */ ("signet");
+    assert.throws(() => setActive(state, bogus), /unknown network/);
+  });
+
+  await testAsync("a directory-sourced Dojo is recorded as such", async () => {
+    let { state } = await loadOrCreate(dir);
+    assert.equal(readiness(state, "bitcoin").needsDojo, true);
+    state = setDojo(state, "bitcoin", {
+      url: "http://" + "a".repeat(56) + ".onion/v2", apikey: "k", label: "someone else's", source: "directory" });
+    assert.equal(state.networks.bitcoin.dojo.source, "directory",
+      "the panel warns on this, so it has to survive the round trip");
+    assert.equal(readiness(state, "bitcoin").needsDojo, false);
+    assert.equal(state.networks.testnet.dojo, null);
+  });
+
+  await testAsync("a swapped seed is refused on EITHER network, not just the active one", async () => {
     const swapped = await mkdtemp(path.join(os.tmpdir(), "mise-identity-"));
     const { state } = await loadOrCreate(swapped);
-    // Put a DIFFERENT seed under the recorded identity, which is what restoring
-    // the wrong backup looks like.
+    // Keep the mainnet code recorded but put a different seed under it, which is
+    // what restoring the wrong backup looks like.
     await writeFile(path.join(swapped, SEED_FILE),
-      JSON.stringify({ mnemonic: newMnemonic(), network: "bitcoin", createdAt: state.createdAt }), { mode: 0o600 });
-    await assert.rejects(() => loadOrCreate(swapped), /no longer derives the recorded payment code/);
+      JSON.stringify({ mnemonic: newMnemonic(), createdAt: state.createdAt }), { mode: 0o600 });
+    await assert.rejects(() => loadOrCreate(swapped), /no longer derives the recorded/);
     await rm(swapped, { recursive: true, force: true });
   });
 

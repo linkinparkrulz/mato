@@ -1,4 +1,4 @@
-// First run: the shop makes itself an identity.
+// First run: the shop makes itself an identity, on every network it can trade on.
 //
 // This is the "store PayNym bot". It is one half of a BIP47 pair; the other
 // half is the operator's PERSONAL payment code. Every address a customer is
@@ -7,11 +7,22 @@
 // payment should go and still not be able to touch it when it arrives.
 //
 // The seed lives here and only here. The gateway is the one process that holds
-// a key, and the web-facing backend reaches these values over the unix socket
+// a key; the web-facing backend reaches these values over the unix socket
 // rather than reading the file, so a compromised front end has nothing to read.
 //
-// The bot does hold a little money, once. Before a stock wallet will recognise
-// the pair, the sender has to announce it in an on-chain notification
+// ONE SEED, BOTH NETWORKS. The same twelve words derive a distinct identity per
+// network — different payment code, different notification address — so both
+// are created at setup and the operator switches between them. One backup
+// covers both, and testnet is a real chain to rehearse the notification
+// transaction on before mainnet money is involved.
+//
+// regtest is deliberately absent. It derives identically to testnet (they share
+// version bytes), so a regtest deployment runs the testnet identity against a
+// regtest node; giving it its own block would be a second name for the same
+// keys and a second set of state to disagree with the first.
+//
+// The bot does hold a little money, once per network. Before a stock wallet will
+// recognise the pair, the sender has to announce it in an on-chain notification
 // transaction, and that costs a fee. The operator funds the bot's own
 // notification address, it spends that once, and it never needs funding again.
 
@@ -26,24 +37,57 @@ export const SEED_FILE = "store-seed.json";
 export const STATE_FILE = "store-identity.json";
 const SEED_MODE = 0o600;
 
-/** Everything the panel and the backend may see. Never carries the mnemonic. */
-export interface IdentityState {
+/** The networks a shop keeps an identity for. */
+export const NETWORKS = ["bitcoin", "testnet"] as const;
+export type Network = (typeof NETWORKS)[number];
+
+export function isNetwork(value: unknown): value is Network {
+  return typeof value === "string" && (NETWORKS as readonly string[]).includes(value);
+}
+
+/** Which node this network's chain work goes through. */
+export interface DojoChoice {
+  url: string;
+  apikey: string;
+  label: string | null;
+  /**
+   * "own" is the operator's own node. "directory" is one picked from a Dojo Bay
+   * list, and is recorded as such because it is a different trust position: that
+   * node's operator sees every address this shop watches.
+   */
+  source: "own" | "directory";
+}
+
+/** One network's half of the shop's identity. Never carries the mnemonic. */
+export interface NetworkIdentity {
   paymentCode: string;
   /** Where the operator funds the bot, and what its payment code resolves to. */
   notificationAddress: string;
-  /** The operator's personal payment code: the RECEIVER. Null until bound. */
+  /** The operator's personal payment code on THIS network: the RECEIVER. */
   receiverPaymentCode: string | null;
+  /**
+   * The notification address that code derives ON THIS NETWORK. Stored so the
+   * panel can show it: it is the only way an operator can tell they pasted the
+   * right code, since the code itself says nothing about which chain it is for.
+   */
+  receiverNotificationAddress: string | null;
   nymName: string | null;
   nymId: string | null;
   notificationTxid: string | null;
   notificationSentAt: string | null;
+  dojo: DojoChoice | null;
+}
+
+export interface IdentityState {
+  /** Which network the shop is currently trading on. */
+  active: Network;
   createdAt: string;
+  networks: Record<Network, NetworkIdentity>;
 }
 
 interface SeedDoc {
   mnemonic: string;
   passphrase?: string;
-  network?: string;
   createdAt: string;
 }
 
@@ -71,6 +115,23 @@ async function readJSON<T>(file: string): Promise<T | null> {
   }
 }
 
+/** Derive the identity for one network from the seed. */
+export function identityFor(seed: SeedDoc, network: Network): StoreIdentity {
+  return StoreIdentity.fromMnemonic(seed.mnemonic, seed.passphrase || "", network);
+}
+
+function blankBlock(id: StoreIdentity): NetworkIdentity {
+  return {
+    paymentCode: id.paymentCode(),
+    notificationAddress: id.notificationAddress(),
+    receiverPaymentCode: null,
+    receiverNotificationAddress: null,
+    nymName: null, nymId: null,
+    notificationTxid: null, notificationSentAt: null,
+    dojo: null,
+  };
+}
+
 /**
  * Load the identity, making one the first time.
  *
@@ -81,7 +142,7 @@ async function readJSON<T>(file: string): Promise<T | null> {
  * customer, and the symptom would be payments that simply never arrive.
  */
 export async function loadOrCreate(dataDir: string): Promise<{
-  identity: StoreIdentity;
+  identities: Record<Network, StoreIdentity>;
   state: IdentityState;
   created: boolean;
 }> {
@@ -91,37 +152,54 @@ export async function loadOrCreate(dataDir: string): Promise<{
   let seed = await readJSON<SeedDoc>(seedPath);
   let created = false;
   if (!seed) {
-    seed = { mnemonic: newMnemonic(), network: "bitcoin", createdAt: new Date().toISOString() };
+    seed = { mnemonic: newMnemonic(), createdAt: new Date().toISOString() };
     await writeAtomic(seedPath, JSON.stringify(seed, null, 2) + "\n", SEED_MODE);
     created = true;
   }
 
-  const identity = StoreIdentity.fromMnemonic(
-    seed.mnemonic, seed.passphrase || "", seed.network || "bitcoin");
+  const identities = Object.fromEntries(
+    NETWORKS.map((n) => [n, identityFor(seed!, n)]),
+  ) as Record<Network, StoreIdentity>;
 
   let state = await readJSON<IdentityState>(statePath);
   if (!state) {
     state = {
-      paymentCode: identity.paymentCode(),
-      notificationAddress: identity.notificationAddress(),
-      receiverPaymentCode: null,
-      nymName: null, nymId: null,
-      notificationTxid: null, notificationSentAt: null,
+      active: "bitcoin",
       createdAt: seed.createdAt,
+      networks: Object.fromEntries(
+        NETWORKS.map((n) => [n, blankBlock(identities[n])]),
+      ) as Record<Network, NetworkIdentity>,
     };
     await writeAtomic(statePath, JSON.stringify(state, null, 2) + "\n", 0o644);
-  } else if (state.paymentCode !== identity.paymentCode()) {
-    // The seed and the recorded identity disagree, which means the seed was
-    // replaced under a shop that has already been running. Every address quoted
-    // before now belongs to a code nobody is watching. Refuse loudly: deriving
-    // on the new one would look like working software and lose money quietly.
-    throw new Error(
-      "the store seed no longer derives the recorded payment code " +
-      `(recorded ${state.paymentCode.slice(0, 12)}…, seed derives ${identity.paymentCode().slice(0, 12)}…). ` +
-      `Restore the original seed, or delete ${STATE_FILE} if this shop has never quoted an address.`);
+  } else {
+    // The seed and the recorded identity must agree on EVERY network, not just
+    // the active one: a seed that derives one but not the other is still the
+    // wrong seed, and the half that disagrees is the half whose addresses were
+    // quoted to somebody. Deriving on a new one would look like working
+    // software and lose money quietly, so this refuses instead.
+    for (const n of NETWORKS) {
+      const recorded = state.networks?.[n]?.paymentCode;
+      const derived = identities[n].paymentCode();
+      if (recorded && recorded !== derived) {
+        throw new Error(
+          `the store seed no longer derives the recorded ${n} payment code ` +
+          `(recorded ${recorded.slice(0, 12)}…, seed derives ${derived.slice(0, 12)}…). ` +
+          `Restore the original seed, or delete ${STATE_FILE} if this shop has never quoted an address.`);
+      }
+    }
+    // A state written before a network existed gains its block here, which is
+    // additive: nothing already recorded is touched.
+    let grew = false;
+    for (const n of NETWORKS) {
+      if (!state.networks?.[n]) {
+        state.networks = { ...(state.networks || {}), [n]: blankBlock(identities[n]) } as Record<Network, NetworkIdentity>;
+        grew = true;
+      }
+    }
+    if (grew) await writeAtomic(statePath, JSON.stringify(state, null, 2) + "\n", 0o644);
   }
 
-  return { identity, state, created };
+  return { identities, state, created };
 }
 
 export async function saveState(dataDir: string, state: IdentityState): Promise<void> {
@@ -142,42 +220,81 @@ export async function revealMnemonic(dataDir: string): Promise<string> {
 }
 
 /**
- * Bind the operator's personal payment code as the receiver.
+ * Bind the operator's personal payment code as the receiver, for one network.
  *
- * Validated by actually parsing it rather than by shape: a typo that still
- * looks like a payment code would otherwise send every customer's payment to a
- * chain the operator holds no keys for, and nothing downstream would notice
- * until somebody had paid.
+ * Per network because the mainnet and testnet receivers are different wallets:
+ * a testnet code cannot receive mainnet money and binding one to both would be
+ * a silent misdirection of real funds.
+ *
+ * Parsing is all this can check, and it is worth being honest about how little
+ * that is: a BIP47 payment code carries NO network. The same string parses on
+ * both chains and simply derives a different notification address — 1… on
+ * mainnet, m/n… on testnet. So a mainnet code pasted into the testnet slot is
+ * accepted here and cannot be rejected by any amount of inspection.
+ *
+ * What catches it is confirmation, not validation. The address that code
+ * derives on this network is recorded and shown, and an operator who pasted the
+ * wrong one sees a notification address their wallet does not know. That is the
+ * check; the parse only rejects text that is not a payment code at all.
  */
-export function bindReceiver(state: IdentityState, personalPaymentCode: string, network = "bitcoin"): IdentityState {
+export function bindReceiver(state: IdentityState, network: Network, personalPaymentCode: string): IdentityState {
+  const block = state.networks[network];
+  if (!block) throw new Error(`unknown network: ${network}`);
   const code = String(personalPaymentCode || "").trim();
+  let receiverNotificationAddress: string;
   try {
-    publicCode(code, network);
+    receiverNotificationAddress = publicCode(code, network).getNotificationAddress();
   } catch (e) {
     throw new Error(`that is not a usable BIP47 payment code: ${(e as Error).message}`);
   }
-  if (code === state.paymentCode) {
+  if (code === block.paymentCode) {
     throw new Error(
       "the receiver cannot be the shop's own payment code: a shop paying itself derives nothing the operator can spend");
   }
-  if (state.notificationTxid && state.receiverPaymentCode && state.receiverPaymentCode !== code) {
+  if (block.notificationTxid && block.receiverPaymentCode && block.receiverPaymentCode !== code) {
     // The notification on-chain names this pair. Re-pointing the receiver now
     // leaves that announcement describing a relationship the shop no longer
     // uses, and the new receiver's wallet was never told to watch.
     throw new Error(
-      "the notification transaction for the current receiver is already on-chain; " +
+      `the ${network} notification transaction for the current receiver is already on-chain; ` +
       "changing the receiver now would strand it. Start a new shop identity instead.");
   }
-  return { ...state, receiverPaymentCode: code };
+  return {
+    ...state,
+    networks: {
+      ...state.networks,
+      [network]: { ...block, receiverPaymentCode: code, receiverNotificationAddress },
+    },
+  };
 }
 
-/** What the shop still needs before it can quote an address to a customer. */
-export function readiness(state: IdentityState): {
+/** Record which node this network's chain work goes through. */
+export function setDojo(state: IdentityState, network: Network, dojo: DojoChoice | null): IdentityState {
+  const block = state.networks[network];
+  if (!block) throw new Error(`unknown network: ${network}`);
+  return { ...state, networks: { ...state.networks, [network]: { ...block, dojo } } };
+}
+
+/** Switch which network the shop trades on. Destroys nothing on either side. */
+export function setActive(state: IdentityState, network: Network): IdentityState {
+  if (!state.networks[network]) throw new Error(`unknown network: ${network}`);
+  return { ...state, active: network };
+}
+
+/** What this network still needs before it can quote an address to a customer. */
+export function readiness(state: IdentityState, network: Network): {
   ready: boolean;
   needsReceiver: boolean;
   needsNotification: boolean;
+  needsDojo: boolean;
 } {
-  const needsReceiver = !state.receiverPaymentCode;
-  const needsNotification = !state.notificationTxid;
-  return { ready: !needsReceiver && !needsNotification, needsReceiver, needsNotification };
+  const block = state.networks[network];
+  if (!block) throw new Error(`unknown network: ${network}`);
+  const needsReceiver = !block.receiverPaymentCode;
+  const needsNotification = !block.notificationTxid;
+  // A Dojo is not needed to DERIVE an address — that is pure maths and touches
+  // no chain. It is needed to notice the payment, so a shop without one can
+  // quote and not settle, which is worth saying separately.
+  const needsDojo = !block.dojo;
+  return { ready: !needsReceiver && !needsNotification, needsReceiver, needsNotification, needsDojo };
 }
