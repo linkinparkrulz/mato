@@ -4,8 +4,13 @@
 # server/ dependencies installed (cd server && npm ci).
 [Unit]
 Description=mise self-service submission backend
-After=tor.service network-online.target
+After=tor.service network-online.target mise-gateway.service
 Wants=tor.service
+# The gateway owns the shop's key and answers over a unix socket. Wants rather
+# than Requires: the backend serves the catalogue and the directory perfectly
+# well while the gateway is down, and reports it as unavailable where it
+# matters, which beats refusing to start the whole site.
+Wants=mise-gateway.service
 
 [Service]
 Type=simple

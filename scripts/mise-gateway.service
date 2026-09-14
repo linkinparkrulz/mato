@@ -1,0 +1,41 @@
+# Install to /etc/systemd/system/mise-gateway.service
+#
+# The wallet gateway: the only process that holds the shop's key. It derives an
+# invoice address, signs it against the shop's payment code, and hands it over a
+# unix socket. The backend never reads the seed; it asks for what it needs.
+#
+# RUN AS THE SAME ACCOUNT AS mise-server. The socket is chmod 0600 and its
+# permissions ARE the access control — there is no authentication inside the
+# protocol, deliberately, because a shared secret in a config file on the same
+# box is not one. A user mismatch here does not fail loudly: the backend simply
+# cannot open the socket, and every identity call in the panel reports the
+# gateway as unavailable.
+[Unit]
+Description=mise wallet gateway (BIP47 invoice addresses)
+After=network.target
+
+[Service]
+Type=simple
+User=mise
+Group=mise
+WorkingDirectory=/var/www/mise/gateway
+# Both processes must agree on this directory: it holds the seed, the identity
+# state and the socket. mise-server.service reads the socket from the same
+# GATEWAY_DATA, so change one and change the other.
+Environment=GATEWAY_DATA=/var/www/mise/gateway/data
+# PERSONAL_CODE is optional and is a headless convenience only. The receiver
+# normally arrives from the admin panel and is stored per network; where both
+# exist the stored one wins. A gateway with neither still starts and still
+# serves its identity — it refuses only the ops that would otherwise derive on
+# a chain nobody owns.
+# Environment=PERSONAL_CODE=PM8T...
+# Environment=ADDRESS_TYPE=p2wpkh
+ExecStart=/usr/bin/node gateway.mjs
+Restart=on-failure
+RestartSec=3
+
+# The seed lives under GATEWAY_DATA. Nothing else on the box needs to read it.
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

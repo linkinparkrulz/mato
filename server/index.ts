@@ -19,6 +19,7 @@ import type { StoreRecord } from "../types.js";
 /** A route handler. Registered against a method and a path pattern. */
 type Handler = (req: IncomingMessage, res: ServerResponse) => unknown | Promise<unknown>;
 import { randomBytes } from "node:crypto";
+import { ask as gatewayAsk } from "./gateway-client.mjs";
 import { store } from "./store.ts";
 import { makeAuth47, notificationAddresses, verifySignedPayload, repairSignedBlock, canonicalPairing } from "./crypto.ts";
 import osMod from "node:os";
@@ -268,6 +269,61 @@ route("GET", /^\/api\/me$/, async (req, res) => {
   if (!s) return json(res, 200, { authenticated: false });
   const mine = (await store.submissionsFor(s.paymentCode)).sort(submissionOrder);
   json(res, 200, { authenticated: true, paymentCode: s.paymentCode, admin: isAdmin(s.paymentCode), submissions: mine });
+});
+
+// ---- admin (shop identity) --------------------------------------------------
+// Thin proxies to the gateway, which owns the seed and every refusal about it.
+// Nothing here decides anything: a wrong-chain receiver, a receiver changed
+// after the notification is on-chain, a seed that no longer derives its own
+// payment code — all of that is bootstrap.ts's, where it is tested. This just
+// carries the question across the socket and the answer back.
+
+/** Relay one gateway call, distinguishing "it is down" from "it said no". */
+async function viaGateway(res, req) {
+  try {
+    const out = await gatewayAsk(req);
+    if (out && out.error) { json(res, 400, { error: out.error }); return null; }
+    return out;
+  } catch (e) {
+    // A gateway that is not running is an operator problem with a remedy, and
+    // the message names it. 503 rather than 500: nothing is broken, something
+    // is not started.
+    json(res, 503, { error: String((e as Error).message || e) });
+    return null;
+  }
+}
+
+route("GET", /^\/api\/admin\/store-identity$/, async (req, res) => {
+  if (!(await adminFrom(req, res))) return;
+  const out = await viaGateway(res, { op: "identity" });
+  if (out) json(res, 200, { admin: true, ...out });
+});
+
+route("POST", /^\/api\/admin\/store-identity\/receiver$/, async (req, res) => {
+  if (!(await adminFrom(req, res))) return;
+  let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: "invalid JSON" }); }
+  const out = await viaGateway(res, { op: "bind-receiver", network: body.network, code: body.code });
+  if (out) json(res, 200, out);
+});
+
+route("POST", /^\/api\/admin\/store-identity\/network$/, async (req, res) => {
+  if (!(await adminFrom(req, res))) return;
+  let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: "invalid JSON" }); }
+  const out = await viaGateway(res, { op: "set-active", network: body.network });
+  if (out) json(res, 200, out);
+});
+
+// The seed reveal.
+//
+// A POST rather than a GET so the twelve words are never a URL: not in an nginx
+// access log, not in browser history, not in a referer. It is also its own
+// route rather than a field on the identity GET, so the only call that can
+// disclose the seed is the one that asked for exactly that — the same reasoning
+// as productListView omitting the fulfilment secret from the product list.
+route("POST", /^\/api\/admin\/store-identity\/seed$/, async (req, res) => {
+  if (!(await adminFrom(req, res))) return;
+  const out = await viaGateway(res, { op: "reveal-seed" });
+  if (out) json(res, 200, out);
 });
 
 // ---- admin (store) ---------------------------------------------------------

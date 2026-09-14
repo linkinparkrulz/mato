@@ -19,6 +19,12 @@ process.env.PORT = "0";
 process.env.TOR_SOCKS_PORT = "19077";
 // isolate the public data dir so admin approve's rebuild() never writes live data
 process.env.PUBLIC_DATA_DIR = "/tmp/mise-selftest-data";
+// A real unix socket for the gateway, stood up below. gateway-client.mjs reads
+// this at import, so it has to be set before the backend loads. Driving the
+// routes over an actual socket rather than a stubbed client is the point: the
+// framing, the timeout and the "gateway is down" path are the parts most likely
+// to be wrong, and a stub would assert none of them.
+process.env.GATEWAY_SOCKET = "/tmp/mise-selftest-gateway.sock";
 // make the simulated wallet's payment code an admin so /admin routes are testable
 process.env.ADMIN_PAYMENT_CODES = BIP47Factory(ecc)
   .fromSeed(mnemonicToSeedSync("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"))
@@ -49,6 +55,61 @@ const proxy = net.createServer((s) => {
   s.on("error", () => {});
 });
 await new Promise((r) => proxy.listen(19077, "127.0.0.1", () => r(null)));
+
+// A stand-in gateway on a real unix socket. It speaks the same
+// newline-delimited JSON the real one does and holds the same shape of state,
+// so the routes are exercised across an actual socket. gatewayOps records what
+// was asked, which is how the tests check the backend relays rather than
+// invents — these routes must decide nothing themselves.
+const gatewayOps = [];
+let gatewayState = {
+  active: "bitcoin",
+  createdAt: new Date().toISOString(),
+  networks: {
+    bitcoin: {
+      paymentCode: "PM8TJdJWQ5c9XJmainnetcodeplaceholderaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      notificationAddress: "1PCkVf5HFH6hF2UCvrYJMgt5FtS9XvK12n",
+      receiverPaymentCode: null, receiverNotificationAddress: null,
+      nymName: null, nymId: null, notificationTxid: null, notificationSentAt: null, dojo: null,
+    },
+    testnet4: {
+      paymentCode: "PM8TJQDSyuNmiXtestnetcodeplaceholderaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      notificationAddress: "n4j8LqqKW4LLbzDmszckKmr69ZbmDqGpQA",
+      receiverPaymentCode: null, receiverNotificationAddress: null,
+      nymName: null, nymId: null, notificationTxid: null, notificationSentAt: null, dojo: null,
+    },
+  },
+};
+const MOCK_MNEMONIC = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+let gatewayDown = false;
+const gatewaySrv = net.createServer((c) => {
+  let buf = "";
+  c.on("data", (d) => {
+    buf += d.toString("utf8");
+    let nl;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl); buf = buf.slice(nl + 1);
+      if (!line.trim()) continue;
+      const req = JSON.parse(line);
+      gatewayOps.push(req);
+      let out;
+      if (req.op === "identity") out = { ...gatewayState };
+      else if (req.op === "reveal-seed") out = { mnemonic: MOCK_MNEMONIC };
+      else if (req.op === "bind-receiver") {
+        if (!req.code) out = { error: "that is not a usable BIP47 payment code" };
+        else {
+          gatewayState.networks[req.network].receiverPaymentCode = req.code;
+          out = { ok: true, network: req.network, ...gatewayState.networks[req.network] };
+        }
+      } else if (req.op === "set-active") { gatewayState.active = req.network; out = { ok: true, active: req.network, restartRequired: true }; }
+      else out = { error: `unknown op: ${req.op}` };
+      c.write(JSON.stringify(out) + "\n");
+    }
+  });
+  c.on("error", () => {});
+});
+await (await import("node:fs/promises")).rm(process.env.GATEWAY_SOCKET, { force: true });
+await new Promise((r) => gatewaySrv.listen(process.env.GATEWAY_SOCKET, () => r(null)));
 
 // The suite drives the server module itself. index.mjs is a launcher whose only
 // job is to refuse an old Node before importing this; it is checked separately
@@ -2213,15 +2274,73 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   ok(ghost.status === 404, "deleting something that is not there is a 404, not a silent ok");
 }
 
+// ---- shop identity routes --------------------------------------------------
+// Driven across the real socket above. What matters here is that the backend
+// RELAYS: every refusal about seeds and receivers belongs to the gateway, where
+// it is tested, and a route that decided any of it itself would be a second
+// copy of the rules free to drift.
+{
+  const before = gatewayOps.length;
+  const id = await api("/api/admin/store-identity");
+  ok(id.status === 200 && id.body.networks.bitcoin.paymentCode.startsWith("PM8T")
+     && id.body.active === "bitcoin",
+     "the identity GET returns both networks and which one is active");
+  ok(gatewayOps.slice(before).some((o) => o.op === "identity"),
+     "and it got there by asking the gateway, not by reading the seed itself");
+
+  // The reason the reveal is its own route.
+  const asText = JSON.stringify(id.body);
+  ok(!asText.includes(MOCK_MNEMONIC) && !asText.includes("mnemonic"),
+     "the identity GET carries no mnemonic: reading status must not be able to leak the seed");
+
+  const seed = await api("/api/admin/store-identity/seed", "POST", {});
+  ok(seed.status === 200 && seed.body.mnemonic === MOCK_MNEMONIC,
+     "the seed is disclosed only by the route that asks for exactly that");
+
+  const bound = await api("/api/admin/store-identity/receiver", "POST",
+    { network: "testnet4", code: "PM8TJS2JxQ5ztXUpBBRnpTbcUXbUHy2T1abfrb3KkAAtMEGNbey4oumH7Hc578WgQJhPjBxteQ5GHHToTYHE3A1w6p7tU6KSoFmWBVbFGjKPisZDbP97" });
+  ok(bound.status === 200 && bound.body.network === "testnet4", "a receiver binds through the panel");
+  const after = await api("/api/admin/store-identity");
+  ok(after.body.networks.testnet4.receiverPaymentCode && !after.body.networks.bitcoin.receiverPaymentCode,
+     "and lands on that network only, which is what the gateway decided");
+
+  // A gateway refusal is relayed as its own words, not reworded or swallowed.
+  const bad = await api("/api/admin/store-identity/receiver", "POST", { network: "bitcoin", code: "" });
+  ok(bad.status === 400 && /not a usable BIP47 payment code/.test(bad.body.error || ""),
+     "a gateway refusal arrives as a 400 carrying the gateway's message: " + JSON.stringify(bad.body.error));
+
+  const sw = await api("/api/admin/store-identity/network", "POST", { network: "testnet4" });
+  ok(sw.status === 200 && sw.body.active === "testnet4" && sw.body.restartRequired === true,
+     "switching networks says plainly that the running gateway serves the old one until restarted");
+}
+
+// A gateway that is not running is an operator problem with a remedy, and must
+// read as one. 503 with the path in it, not a 500 and not a hang.
+{
+  await new Promise((r) => gatewaySrv.close(() => r(null)));
+  const down = await api("/api/admin/store-identity");
+  ok(down.status === 503 && /no gateway socket at/.test(down.body.error || ""),
+     "with the gateway stopped the panel is told what is missing: " + JSON.stringify(down.body.error));
+  const seedDown = await api("/api/admin/store-identity/seed", "POST", {});
+  ok(seedDown.status === 503, "and the seed route fails the same way rather than half-answering");
+  await new Promise((r) => gatewaySrv.listen(process.env.GATEWAY_SOCKET, () => r(null)));
+}
+
 // The store routes are admin-gated exactly like moderation. Prove it with the
 // session dropped rather than by reading the code.
 {
   const saved = cookie; cookie = "";
   const anon = await api("/api/admin/products");
   const anonWrite = await api("/api/admin/product", "POST", { name: "x", price_usd_cents: 1 });
+  const anonId = await api("/api/admin/store-identity");
+  const anonSeed = await api("/api/admin/store-identity/seed", "POST", {});
+  const anonBind = await api("/api/admin/store-identity/receiver", "POST", { network: "bitcoin", code: "x" });
+  const anonNet = await api("/api/admin/store-identity/network", "POST", { network: "bitcoin" });
   cookie = saved;
   ok(anon.status === 401 && anonWrite.status === 401,
      "an unauthenticated caller gets 401 from both the product list and the write");
+  ok(anonId.status === 401 && anonSeed.status === 401 && anonBind.status === 401 && anonNet.status === 401,
+     "and from all four identity routes, the seed reveal most of all");
 }
 
 await fsp.rm(process.env.PUBLIC_DATA_DIR, { recursive: true, force: true });

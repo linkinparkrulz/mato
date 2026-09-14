@@ -1294,6 +1294,8 @@ async function loadJSON(url){
       adminShell('<p style="font-size:13px;color:var(--muted)">Sign in with your operator PayNym via Auth47 (<a href="https://web.archive.org/web/20240424023506/https://samouraiwallet.com/" target="_blank" rel="noopener">Samourai</a> or <a href="http://ashigaruprvm4u263aoj6wxnipc4jrhb2avjll4nnk255jkdmj2obqqd.onion/" target="_blank" rel="noopener">Ashigaru</a> \u2192 Tools \u2192 Authenticate using PayNym).</p><div id="auth47-box" style="text-align:center;margin:18px 0"><p class="loading">Requesting challenge\u2026</p></div>');
       onAuthSuccess = renderAdminPanel; startAuth47(); return;
     }
+    // Fetch once per panel open; loadShop re-renders when it lands.
+    if(SHOP === null && SHOP_ERROR === null && ME.admin) loadShop();
     if(!ME.admin){
       adminShell('<p>The payment code <code>'+esc(ME.paymentCode.slice(0,12))+'\u2026</code> is not an administrator of this directory.</p><p style="margin-top:10px"><button class="abtn" data-adm="logout">Sign out</button></p>');
       return;
@@ -1340,6 +1342,7 @@ async function loadJSON(url){
       '<span style="font-size:12px;color:var(--faint)">(the same Auth47 session as Manage my Dojo; signing out here signs you out there too)</span></p>'+
       updatesLine()+
       importLine()+
+      shopCard()+
       (ADMIN_NOTICE?'<p style="font-size:12.5px;color:var(--down);border:1px solid var(--down);border-radius:8px;padding:8px 12px">'+esc(ADMIN_NOTICE)+'</p>':"")+
       '<h3 style="margin:16px 0 8px">Pending review ('+pending.length+')</h3>'+
       (pending.length? pending.map(adminRow).join("") : '<p style="color:var(--faint)">Nothing awaiting review.</p>')+
@@ -1347,6 +1350,69 @@ async function loadJSON(url){
       (others.length? others.map(adminRow).join("") : '<p style="color:var(--faint)">None.</p>')
     );
   }
+  // ---- shop identity card ---------------------------------------------------
+  // The wallet the shop derives invoice addresses with. Everything shown here
+  // comes from the gateway over its socket; this panel decides nothing about
+  // seeds or receivers, it only displays and relays.
+  let SHOP = null, SHOP_ERROR = null, SHOP_SEED = null, SHOP_NET = null;
+
+  async function loadShop(){
+    const r = await api.call("/admin/store-identity");
+    if(r.status === 200){ SHOP = r.body; SHOP_ERROR = null; SHOP_NET = SHOP_NET || SHOP.active; }
+    else { SHOP = null; SHOP_ERROR = (r.body && r.body.error) || ("HTTP " + r.status); }
+    renderAdminPanel();
+  }
+
+  function shopCard(){
+    if(SHOP_ERROR){
+      return '<h3 style="margin:22px 0 8px">Shop wallet</h3>'+
+        '<p style="font-size:12.5px;color:var(--down);border:1px solid var(--down);border-radius:8px;padding:8px 12px">'+
+        esc(SHOP_ERROR)+'</p>';
+    }
+    if(!SHOP) return '<h3 style="margin:22px 0 8px">Shop wallet</h3><p class="loading">Asking the gateway\u2026</p>';
+    const net = SHOP_NET || SHOP.active;
+    const b = SHOP.networks[net];
+    if(!b) return "";
+    const rd = b.readiness || {};
+    const chip = (v) => esc(v.slice(0,8))+"\u2026"+esc(v.slice(-8));
+    return '<h3 style="margin:22px 0 8px">Shop wallet</h3>'+
+      '<div class="seg" style="margin-bottom:10px">'+
+        Object.keys(SHOP.networks).map(n =>
+          '<button data-shopnet="'+esc(n)+'" class="'+(n===net?"on":"")+'">'+esc(n)+
+          (n===SHOP.active?"":" (inactive)")+'</button>').join("")+
+      '</div>'+
+      '<div class="acard">'+
+        '<p style="font-size:12.5px">Payment code <code class="pc-chip" data-copy="'+esc(b.paymentCode)+'">'+chip(b.paymentCode)+'</code></p>'+
+        // The funding prompt. It is the one thing standing between a configured
+        // shop and a working one, so it is stated as an instruction rather than
+        // a status, and it disappears the moment the notification is on-chain.
+        (rd.needsNotification
+          ? '<div style="border:1px solid var(--down);border-radius:8px;padding:10px 12px;margin:10px 0">'+
+            '<b>This wallet needs a small amount of bitcoin.</b> '+
+            'It has to publish one BIP47 notification transaction so your own wallet starts watching '+
+            'for the addresses this shop derives. That costs a fee, once, and never again. Send a small '+
+            'amount to:<br><code>'+esc(b.notificationAddress)+'</code>'+
+            '<div id="shop-qr" data-qr="'+esc(b.notificationAddress)+'" style="margin-top:8px"></div></div>'
+          : '<p style="font-size:12.5px;color:var(--faint)">Notification sent \u2014 <code>'+esc(String(b.notificationTxid).slice(0,16))+'\u2026</code></p>')+
+        // The receiver, shown WITH the address it derives. A payment code says
+        // nothing about which chain it is for, so the derived address is the
+        // only way an operator can see they pasted a mainnet code into testnet.
+        (b.receiverPaymentCode
+          ? '<p style="font-size:12.5px">Paying into <code>'+chip(b.receiverPaymentCode)+'</code><br>'+
+            '<span style="color:var(--faint)">which notifies <code>'+esc(b.receiverNotificationAddress||"")+'</code> \u2014 '+
+            'check that is an address your wallet knows, because a payment code does not say which chain it belongs to</span></p>'
+          : '<p style="font-size:12.5px"><label>Your personal payment code '+
+            '<input id="shop-recv" placeholder="PM8T\u2026" style="width:100%;font-family:monospace;font-size:11px"></label> '+
+            '<button class="abtn" data-shop="bind">Bind receiver</button></p>')+
+        '<p style="margin-top:10px">'+
+          (SHOP_SEED
+            ? '<code style="display:block;padding:8px;border:1px solid var(--down);border-radius:6px">'+esc(SHOP_SEED)+'</code>'+
+              '<span style="font-size:12px;color:var(--faint)">Write these down. They are the only copy, and once this wallet is funded they can spend it.</span>'
+            : '<button class="abtn" data-shop="seed">View seed words</button>')+
+        '</p>'+
+      '</div>';
+  }
+
   let ADMIN_NOTICE = null;
   let ADMIN_UPDATES = null, ADMIN_UPDATES_LOADING = false, ADMIN_LAST = null;
   // The import job, polled the same way an update is. Declared here, above the
@@ -1619,6 +1685,34 @@ async function loadJSON(url){
       }
     }, 1200);
   }
+  // Shop wallet actions. Its own listener rather than more branches in the
+  // admin one: nothing here touches submissions, and every call is a relay to
+  // the gateway whose answer is displayed as it arrived.
+  document.addEventListener("click", async e=>{
+    const el = evEl(e);
+    const netBtn = el?.closest("[data-shopnet]");
+    if(netBtn){ SHOP_NET = netBtn.getAttribute("data-shopnet"); SHOP_SEED = null; renderAdminPanel(); return; }
+    const sb = el?.closest("[data-shop]"); if(!sb) return;
+    const act = sb.getAttribute("data-shop");
+    const net = SHOP_NET || (SHOP && SHOP.active);
+    if(act === "seed"){
+      const r = await api.call("/admin/store-identity/seed", "POST", {});
+      if(r.status === 200) SHOP_SEED = r.body.mnemonic;
+      else ADMIN_NOTICE = "Could not read the seed: " + ((r.body && r.body.error) || ("HTTP " + r.status));
+      renderAdminPanel(); return;
+    }
+    if(act === "bind"){
+      const input = /** @type {HTMLInputElement|null} */ (document.getElementById("shop-recv"));
+      const code = ((input && input.value) || "").trim();
+      if(!code) return;
+      const r = await api.call("/admin/store-identity/receiver", "POST", { network: net, code });
+      // The gateway owns every refusal here; show its words rather than a
+      // guess at what went wrong.
+      if(r.status !== 200) ADMIN_NOTICE = (r.body && r.body.error) || ("HTTP " + r.status);
+      else ADMIN_NOTICE = null;
+      await loadShop(); return;
+    }
+  });
   document.addEventListener("click", async e=>{
     const b=evEl(e)?.closest("[data-adm]"); if(!b) return;
     const act=b.getAttribute("data-adm"), id=b.getAttribute("data-id");

@@ -62,6 +62,16 @@ const FILES = [
     after: "systemd",
   },
   {
+    name: "gateway unit",
+    template: "scripts/mise-gateway.service",
+    installed: "/etc/systemd/system/mise-gateway.service",
+    // No render: the gateway unit carries no per-instance values. The web root
+    // is its WorkingDirectory and GATEWAY_DATA, both of which an operator edits
+    // if they moved the install; there is nothing for the installer to stamp.
+    render: (tpl) => tpl,
+    after: "systemd",
+  },
+  {
     name: "updater unit",
     template: "scripts/mise-update.service",
     installed: "/etc/systemd/system/mise-update.service",

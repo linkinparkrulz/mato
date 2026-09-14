@@ -375,13 +375,35 @@ await testAsync("the socket is not readable by other accounts", async () => {
   assert.equal(mode, 0o600, `socket mode is ${mode.toString(8)}, expected 600`);
 });
 
-await testAsync("a gateway with no personal code refuses to start", async () => {
-  // It would otherwise derive on a chain nobody owns, and every payment into it
-  // would be unspendable by anyone.
-  assert.throws(
-    () => makeHandler({ identity: storeId, personalCode: "", indexStore: new IndexStore(path.join(tmp, "z"), "bitcoin") }),
-    /chain nobody owns/,
-  );
+await testAsync("a gateway with no receiver starts, and refuses to derive", async () => {
+  // It used to refuse to START. That could not survive the receiver moving into
+  // the panel: a gateway that will not boot without one can never be configured
+  // through the interface that sets it. So it boots and refuses the ops that
+  // would otherwise derive on a chain nobody owns — which is the actual harm,
+  // since every payment into such an address is unspendable by anyone.
+  const handle = makeHandler({
+    identity: storeId, personalCode: "", indexStore: new IndexStore(path.join(tmp, "z"), "bitcoin"),
+  });
+  const next = await handle({ op: "next" });
+  const peek = await handle({ op: "peek", index: 0 });
+  assert.match(next.error, /no receiver yet/);
+  assert.match(peek.error, /no receiver yet/);
+  // Status still answers, because that is what an operator looks at to find out
+  // what is missing.
+  const st = await handle({ op: "status" });
+  assert.equal(st.personalCode, null);
+  assert.ok(st.paymentCode.startsWith("PM8T"));
+});
+
+await testAsync("the identity ops are absent unless the gateway owns a shop", async () => {
+  // The derivation tests run with a throwaway wallet and no shop identity, so
+  // these say so rather than being quietly stubbed into looking available.
+  const handle = makeHandler({
+    identity: storeId, personalCode: BOB_CODE, indexStore: new IndexStore(path.join(tmp, "y"), "bitcoin"),
+  });
+  for (const op of ["identity", "bind-receiver", "set-active", "set-dojo", "reveal-seed"]) {
+    assert.match((await handle({ op })).error, /not started with a shop identity/, op);
+  }
 });
 
 // ---- the air-gapped alternative ---------------------------------------------
