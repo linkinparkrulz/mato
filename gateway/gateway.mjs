@@ -141,7 +141,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const handle = makeHandler({
     identity,
     personalCode: process.env.PERSONAL_CODE,
-    indexStore: new IndexStore(DATA),
+    indexStore: new IndexStore(DATA, identity.network),
     addressType: ADDRESS_TYPE,
   });
   await unlink(SOCKET).catch(() => {});

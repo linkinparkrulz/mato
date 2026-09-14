@@ -2074,6 +2074,7 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
   const now = new Date();
   const baseInvoice = /** @type {import("../types.js").InvoiceRecord} */ ({
     id: "inv1", product_id: "p1", quantity: 1, status: "awaiting_payment",
+    network: "bitcoin",
     address_record: signedAddr, address: signedAddr.address, address_index: 0,
     price_usd_cents: 1999, rate_usd: 60000, rate_at: now.toISOString(),
     amount_sats: 33316, expires_at: new Date(+now + 9e5).toISOString(),
@@ -2120,8 +2121,40 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
      })).id === "i9",
      "an old invoice still writes when its rate was fresh at creation");
 
-  ok((await shop.invoiceByAddress(signedAddr.address))?.id !== undefined,
+  ok((await shop.invoiceByAddress(signedAddr.address, "bitcoin"))?.id !== undefined,
      "an invoice is findable by its address, which is how the watcher credits a payment");
+
+  // ---- an invoice remembers its chain ---------------------------------------
+  // A shop keeps an identity per network and switches between them, so the same
+  // address index exists on both. These are the checks that stop the two being
+  // confused, which is the kind of mistake that marks a real order paid.
+  await refuses(() => shop.putInvoice({ ...baseInvoice, id: "n1", network: undefined }),
+    /network must be "bitcoin" or "testnet"/, "an invoice with no network is refused");
+  // Cast: the union rejects this at compile time, but invoices arrive as JSON
+  // from the checkout path where types do not apply, so the runtime guard is the
+  // one that actually holds.
+  const signet = /** @type {any} */ ("signet");
+  await refuses(() => shop.putInvoice({ ...baseInvoice, id: "n2", network: signet }),
+    /network must be "bitcoin" or "testnet"/, "an invoice on a network this shop does not keep is refused");
+
+  {
+    // Same address index on both chains: legitimate, and it must not collide.
+    const tnetAddr = { ...signedAddr, address: "tb1qw508d6qejxtdg4y5r3zarvary0c5xw7kxpjzsx", network: "testnet" };
+    const tnet = await shop.putInvoice({
+      ...baseInvoice, id: "n3", network: "testnet",
+      address_record: tnetAddr, address: tnetAddr.address, address_index: 0,
+    });
+    ok(tnet.id === "n3" && tnet.address_index === 0,
+       "the same address index stores on both chains, because they are different chains");
+    const onMain = await shop.invoiceByAddress(signedAddr.address, "bitcoin");
+    const onTest = await shop.invoiceByAddress(tnetAddr.address, "testnet");
+    ok(onMain?.network === "bitcoin" && onTest?.network === "testnet" && onMain.id !== onTest.id,
+       "each chain's address resolves to its own invoice");
+    ok((await shop.invoiceByAddress(tnetAddr.address, "bitcoin")) === null,
+       "a testnet address does not match on mainnet: worthless coins cannot settle a real order");
+    ok((await shop.invoiceByAddress(signedAddr.address, "testnet")) === null,
+       "and the reverse, so a lookup without the chain cannot quietly pick either");
+  }
 }
 
 // ---- admin store routes ----------------------------------------------------

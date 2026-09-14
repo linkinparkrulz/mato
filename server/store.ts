@@ -249,10 +249,18 @@ export const store = {
   async listInvoices(): Promise<InvoiceRecord[]> { return Object.values((await load()).invoices || {}); },
   async getInvoice(id: string): Promise<InvoiceRecord | null> { return ((await load()).invoices || {})[id] || null; },
 
-  /** The invoice an address belongs to, for the payment watcher. */
-  async invoiceByAddress(address: string): Promise<InvoiceRecord | null> {
-    if (!address) return null;
-    return Object.values((await load()).invoices || {}).find((i) => i.address === address) || null;
+  /**
+   * The invoice an address belongs to, for the payment watcher.
+   *
+   * Scoped to a network because an address is only unique within its chain. The
+   * watcher knows which chain it saw a payment on, and passing that in is what
+   * stops a testnet address matching a mainnet order — which would mark a real
+   * order paid off the back of worthless coins.
+   */
+  async invoiceByAddress(address: string, network: "bitcoin" | "testnet"): Promise<InvoiceRecord | null> {
+    if (!address || !network) return null;
+    return Object.values((await load()).invoices || {})
+      .find((i) => i.address === address && i.network === network) || null;
   },
 
   async invoicesFor(paymentCode: string): Promise<InvoiceRecord[]> {
@@ -285,6 +293,14 @@ export const store = {
   async putInvoice(rec: InvoiceRecord): Promise<InvoiceRecord> {
     if (!rec?.id || typeof rec.id !== "string") {
       throw new Error("refusing to store an invoice with no id");
+    }
+    // Which chain this was quoted on. A shop with two live identities can quote
+    // the same address index on either, so an invoice that does not say is an
+    // invoice the watcher cannot look for: it would search one chain for an
+    // address that only exists on the other and simply never see the payment.
+    if (rec.network !== "bitcoin" && rec.network !== "testnet") {
+      throw new Error(`refusing to store invoice ${rec.id}: network must be "bitcoin" or "testnet", ` +
+        `not ${JSON.stringify(rec.network)}. An invoice that does not name its chain cannot be settled.`);
     }
     const signed = rec.address_record;
     if (!signed || typeof signed.signed !== "string" || !signed.signed || !signed.address) {

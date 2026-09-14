@@ -55,7 +55,21 @@ export class IndexStore {
   private state: IndexState | null = null;
   private tmpSeq = 0;
 
-  constructor(dir: string) { this.file = path.join(dir, "index-state.json"); }
+  /**
+   * One store per chain, in its own file.
+   *
+   * The network is required rather than defaulted because the failure it
+   * prevents is silent and expensive: a shop keeps an identity per network, the
+   * chains are separate, and a shared file would let a testnet allocation
+   * consume a mainnet index. That index is then handed to a real customer while
+   * the quarantine and retirement bookkeeping — which exists to keep the
+   * operator's wallet inside its scanning window — has been counting the wrong
+   * chain's activity. Defaulting would make forgetting it look like working.
+   */
+  constructor(dir: string, network: string) {
+    if (!network) throw new Error("an index store must be told its network: the chains do not share indices");
+    this.file = path.join(dir, `index-state.${network}.json`);
+  }
 
   private async load(): Promise<IndexState> {
     if (this.state) return this.state;

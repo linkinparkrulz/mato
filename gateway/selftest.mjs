@@ -254,7 +254,7 @@ console.log("\nIndex allocation");
 const tmp = await mkdtemp(path.join(os.tmpdir(), "gw-selftest-"));
 
 await testAsync("indices are handed out in order and never repeat", async () => {
-  const ix = new IndexStore(path.join(tmp, "a"));
+  const ix = new IndexStore(path.join(tmp, "a"), "bitcoin");
   const got = [];
   for (let i = 0; i < 5; i++) got.push(await ix.allocate());
   assert.deepEqual(got, [0, 1, 2, 3, 4]);
@@ -264,7 +264,7 @@ await testAsync("indices are handed out in order and never repeat", async () => 
 await testAsync("a released index is quarantined before it can be reissued", async () => {
   // Reissuing immediately is the cross-crediting bug: a customer paying an
   // expired invoice late would land on an address now held by another order.
-  const ix = new IndexStore(path.join(tmp, "b"));
+  const ix = new IndexStore(path.join(tmp, "b"), "bitcoin");
   const first = await ix.allocate();
   assert.equal(await ix.release(first), true);
   assert.equal(await ix.allocate(), 1, "a freshly released index was reissued inside its quarantine");
@@ -273,7 +273,7 @@ await testAsync("a released index is quarantined before it can be reissued", asy
 });
 
 await testAsync("releasing twice does not put an index in the free list twice", async () => {
-  const ix = new IndexStore(path.join(tmp, "c"));
+  const ix = new IndexStore(path.join(tmp, "c"), "bitcoin");
   const idx = await ix.allocate();
   assert.equal(await ix.release(idx), true);
   assert.equal(await ix.release(idx), false, "a second release was accepted");
@@ -284,7 +284,7 @@ await testAsync("releasing twice does not put an index in the free list twice", 
 
 await testAsync("a settled index is never reissued", async () => {
   // It was paid. Reusing it would publish a link between two customers' orders.
-  const ix = new IndexStore(path.join(tmp, "d"));
+  const ix = new IndexStore(path.join(tmp, "d"), "bitcoin");
   const idx = await ix.allocate();
   await ix.settle(idx);
   const later = Date.now() + RECLAIM_QUARANTINE_MS * 10;
@@ -293,9 +293,9 @@ await testAsync("a settled index is never reissued", async () => {
 
 await testAsync("the counter survives a restart", async () => {
   const dir = path.join(tmp, "e");
-  const first = new IndexStore(dir);
+  const first = new IndexStore(dir, "bitcoin");
   for (let i = 0; i < 3; i++) await first.allocate();
-  const reopened = new IndexStore(dir);
+  const reopened = new IndexStore(dir, "bitcoin");
   assert.equal(await reopened.allocate(), 3, "a restart reissued an index it had already handed out");
 });
 
@@ -306,7 +306,7 @@ const sock = path.join(tmp, "gw.sock");
 const handler = makeHandler({
   identity: storeId,
   personalCode: BOB_CODE,
-  indexStore: new IndexStore(path.join(tmp, "daemon")),
+  indexStore: new IndexStore(path.join(tmp, "daemon"), "bitcoin"),
   addressType: "p2pkh",
 });
 const server = await serve(handler, sock);
@@ -379,7 +379,7 @@ await testAsync("a gateway with no personal code refuses to start", async () => 
   // It would otherwise derive on a chain nobody owns, and every payment into it
   // would be unspendable by anyone.
   assert.throws(
-    () => makeHandler({ identity: storeId, personalCode: "", indexStore: new IndexStore(path.join(tmp, "z")) }),
+    () => makeHandler({ identity: storeId, personalCode: "", indexStore: new IndexStore(path.join(tmp, "z"), "bitcoin") }),
     /chain nobody owns/,
   );
 });
@@ -425,6 +425,43 @@ test("a nonsensical pool range is refused", () => {
   assert.throws(() => buildPool(storeId, BOB_CODE, { start: -1, count: 5 }), /--start/);
   assert.throws(() => buildPool(storeId, BOB_CODE, { start: 0, count: 0 }), /--count/);
 });
+
+// ---- index state is per chain -----------------------------------------------
+console.log("\nper-network index state");
+{
+  const dir = await mkdtemp(path.join(os.tmpdir(), "mise-ix-net-"));
+  const main = new IndexStore(dir, "bitcoin");
+  const test = new IndexStore(dir, "testnet");
+
+  await testAsync("each chain writes its own file", async () => {
+    await main.allocate();
+    await test.allocate();
+    assert.notEqual(main.file, test.file);
+    assert.match(main.file, /index-state\.bitcoin\.json$/);
+    assert.match(test.file, /index-state\.testnet\.json$/);
+    await stat(main.file);
+    await stat(test.file);
+  });
+
+  await testAsync("an allocation on one chain does not advance the other", async () => {
+    // Sharing a file would have testnet eating mainnet indices: the next real
+    // customer gets an index the operator's wallet is not expecting, and the
+    // gap-limit bookkeeping has been counting the wrong chain's traffic.
+    const a = await main.allocate();
+    const b = await main.allocate();
+    const t = await test.allocate();
+    assert.equal(b, a + 1, "mainnet advances by its own allocations");
+    assert.ok(t < b, `testnet is on its own count, got ${t} against mainnet ${b}`);
+  });
+
+  await testAsync("a store must be told its network rather than guessing one", async () => {
+    // @ts-expect-error deliberately omitted: this is the mistake being prevented
+    assert.throws(() => new IndexStore(dir), /must be told its network/);
+    assert.throws(() => new IndexStore(dir, ""), /must be told its network/);
+  });
+
+  await rm(dir, { recursive: true, force: true });
+}
 
 // ---- first-run identity -----------------------------------------------------
 console.log("\nfirst-run identity");

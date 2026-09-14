@@ -204,6 +204,15 @@ export type InvoiceStatus =
 /** One order. The id is the customer's claim on it when they have no PayNym. */
 export interface InvoiceRecord {
   id: string;
+  /**
+   * The chain this invoice was quoted on.
+   *
+   * A shop keeps an identity per network and can switch between them, so an
+   * address alone does not say which chain it belongs to. Without this the
+   * payment watcher would look for a testnet address on mainnet, and
+   * invoiceByAddress could hand back the wrong order.
+   */
+  network: "bitcoin" | "testnet";
   product_id: string;
   quantity: number;
   status: InvoiceStatus;
