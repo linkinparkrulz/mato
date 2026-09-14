@@ -1319,23 +1319,19 @@ async function loadJSON(url){
       // file the operator had no reason to open.
       api.call("/admin/update/status").then(r=>{ ADMIN_LAST = (r.body||{}).lastResult||null; renderAdminPanel(); }).catch(()=>{});
     }
-    adminShell('<p class="loading">Loading submissions\u2026</p>');
+    // Session check. /api/me has already answered by the time this runs, but a
+    // session can end between panels — signed out in another tab, or the
+    // backend restarted — and the console should say so rather than render an
+    // operator console to nobody.
     const r = await api.call("/admin/submissions");
-    if(r.status===401){ ME={authenticated:false}; renderAdminPanel(); return; }   // signed out elsewhere (Manage panel / another tab)
-    if(r.status!==200){
-      // A number tells a moderator nothing. If the proxy could not reach the
-      // backend at all, say what that means and what to do about it, because
-      // the commonest cause is a restart this page itself set in motion.
-      adminShell(r.gatewayDown
-        ? '<p>The backend is not answering. If you have just updated, it is restarting: '
-          + 'wait a moment and reload. If this persists, the service has stopped and needs '
-          + 'starting on the box.</p>'
-        : '<p>Could not load submissions ('+esc(String(r.status))+').</p>');
+    if(r.status===401){ ME={authenticated:false}; renderAdminPanel(); return; }
+    if(r.status!==200 && r.gatewayDown){
+      // The commonest cause is a restart this page itself set in motion.
+      adminShell('<p>The backend is not answering. If you have just updated, it is restarting: '
+        + 'wait a moment and reload. If this persists, the service has stopped and needs '
+        + 'starting on the box.</p>');
       return;
     }
-    const subs=r.body.submissions||[];
-    const pending=subs.filter(s=>s.status==="pending");
-    const others=subs.filter(s=>s.status!=="pending");
     adminShell(
       '<p style="font-size:13px;color:var(--muted)">Signed in as <code>'+esc(ME.paymentCode.slice(0,12))+'\u2026'+esc(ME.paymentCode.slice(-4))+'</code> '+
       '<button class="abtn" data-adm="logout" style="margin-left:8px">Sign out</button> '+
@@ -1343,11 +1339,7 @@ async function loadJSON(url){
       updatesLine()+
       importLine()+
       shopCard()+
-      (ADMIN_NOTICE?'<p style="font-size:12.5px;color:var(--down);border:1px solid var(--down);border-radius:8px;padding:8px 12px">'+esc(ADMIN_NOTICE)+'</p>':"")+
-      '<h3 style="margin:16px 0 8px">Pending review ('+pending.length+')</h3>'+
-      (pending.length? pending.map(adminRow).join("") : '<p style="color:var(--faint)">Nothing awaiting review.</p>')+
-      '<h3 style="margin:22px 0 8px">Approved / rejected ('+others.length+')</h3>'+
-      (others.length? others.map(adminRow).join("") : '<p style="color:var(--faint)">None.</p>')
+      (ADMIN_NOTICE?'<p style="font-size:12.5px;color:var(--down);border:1px solid var(--down);border-radius:8px;padding:8px 12px">'+esc(ADMIN_NOTICE)+'</p>':"")
     );
   }
   // ---- shop identity card ---------------------------------------------------
