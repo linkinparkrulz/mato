@@ -77,12 +77,21 @@ test("the personal notification address matches the published one", () => {
 
 test("invoice addresses 0..9 match the published payment addresses", () => {
   for (let i = 0; i < BOB_PAYMENT_ADDRESSES.length; i++) {
-    assert.equal(addressFor(store, BOB_CODE, i), BOB_PAYMENT_ADDRESSES[i], `index ${i}`);
+    // "p2pkh" explicitly: these are the addresses the BIP publishes. Inheriting
+    // the default would stop this testing the specification and start it testing
+    // whatever the default currently is.
+    assert.equal(addressFor(store, BOB_CODE, i, "p2pkh"), BOB_PAYMENT_ADDRESSES[i], `index ${i}`);
   }
 });
 
-test("the default address type is the legacy, universally-scanned one", () => {
-  assert.equal(DEFAULT_ADDRESS_TYPE, "p2pkh");
+test("invoice addresses default to segwit, notification addresses never do", () => {
+  assert.equal(DEFAULT_ADDRESS_TYPE, "p2wpkh");
+  // Not a stylistic mismatch to tidy up later: BIP47 defines the notification
+  // address as the P2PKH address of the notification key. A wallet looking for
+  // a notification transaction looks there and nowhere else, so this one stays
+  // legacy however the invoice default moves.
+  assert.match(personal.toPaymentCodePublic().getNotificationAddress(), /^[13mn2]/);
+  assert.equal(publicCode(BOB_CODE).getNotificationAddress(), BOB_NOTIFICATION);
 });
 
 // ---- the property the whole design promises ---------------------------------
@@ -120,7 +129,7 @@ test("calling on the wrong side yields a different, wrong-chain address", () => 
   // throw and the result is a perfectly valid address; it simply belongs to the
   // store's chain, where the operator's wallet will never look. Asserting the
   // inequality keeps the distinction visible to anyone refactoring.
-  const right = addressFor(store, BOB_CODE, 0);
+  const right = addressFor(store, BOB_CODE, 0, "p2pkh");
   const wrong = publicCode(ALICE_CODE).getPaymentAddress(personal, 0, "p2pkh");
   assert.notEqual(right, wrong);
   assert.equal(right, BOB_PAYMENT_ADDRESSES[0]);
@@ -179,11 +188,24 @@ test("a nonsense mnemonic is refused rather than silently seeding a wrong chain"
 });
 
 test("a signed address verifies against the store's payment code", () => {
+  // Derived with the type the record declares. They have to agree: the
+  // signature covers both, so a record claiming p2pkh while carrying a segwit
+  // address is a lie the customer is asked to check an address against.
   const rec = storeId.signAddress({
-    v: 1, address: addressFor(store, BOB_CODE, 0), index: 0,
+    v: 1, address: addressFor(store, BOB_CODE, 0, "p2pkh"), index: 0,
     type: "p2pkh", network: "bitcoin", paymentCode: ALICE_CODE,
   });
   assert.equal(rec.address, BOB_PAYMENT_ADDRESSES[0]);
+  assert.deepEqual(verifySignedAddress(rec, ALICE_CODE), { ok: true });
+});
+
+test("a segwit invoice signs and verifies the same way, being the default now", () => {
+  const address = addressFor(store, BOB_CODE, 0);
+  assert.match(address, /^bc1/, "the default is native segwit: " + address);
+  assert.notEqual(address, BOB_PAYMENT_ADDRESSES[0], "a different chain from the legacy vector");
+  const rec = storeId.signAddress({
+    v: 1, address, index: 0, type: "p2wpkh", network: "bitcoin", paymentCode: ALICE_CODE,
+  });
   assert.deepEqual(verifySignedAddress(rec, ALICE_CODE), { ok: true });
 });
 

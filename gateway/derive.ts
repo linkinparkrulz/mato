@@ -38,18 +38,24 @@ import type { PaymentCodePrivate, PaymentCodePublic } from "@dojo-tools/bip47";
 export type AddressType = "p2pkh" | "p2sh" | "p2wpkh";
 
 /**
- * The default encoding, and deliberately the legacy one.
+ * The default encoding for INVOICE addresses: native segwit.
  *
- * p2pkh is what the BIP47 test vectors specify and what every wallet
- * implementing v1 payment codes scans for. p2wpkh derives correctly here and
- * costs the customer less in fees, but a chain the operator's wallet does not
- * scan is a payment nobody sees, and that failure is silent and unrecoverable
- * by us. So the safe form is the default, the type is configurable for an
- * operator who knows their wallet handles it, and the installer settles the
- * question empirically by deriving address 0 and asking the operator to confirm
- * their own wallet displays it.
+ * Customers pay less in fees and the transaction is smaller, and the wallets
+ * this shop is built around — Samourai and Ashigaru — scan the segwit chain.
+ *
+ * The cost is real and worth stating where the choice is made: a receiving
+ * wallet that does NOT scan p2wpkh sees nothing, and the shop cannot detect
+ * that. A payment lands at an address the operator's wallet never looks at,
+ * there is no error anywhere, and the money is not lost but is invisible until
+ * someone rescans with the right derivation. The type stays configurable for an
+ * operator whose wallet needs the legacy form.
+ *
+ * This is the invoice address only. The NOTIFICATION address is p2pkh and is
+ * not a choice: BIP47 defines it as the P2PKH address of the notification key,
+ * so a wallet hunting a notification transaction looks nowhere else. Making it
+ * segwit would mean nobody ever finds the announcement.
  */
-export const DEFAULT_ADDRESS_TYPE: AddressType = "p2pkh";
+export const DEFAULT_ADDRESS_TYPE: AddressType = "p2wpkh";
 
 const ADDRESS_TYPES: readonly AddressType[] = ["p2pkh", "p2sh", "p2wpkh"];
 
