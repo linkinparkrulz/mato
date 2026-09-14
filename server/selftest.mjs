@@ -2124,6 +2124,73 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
      "an invoice is findable by its address, which is how the watcher credits a payment");
 }
 
+// ---- admin store routes ----------------------------------------------------
+// The session in this suite is already an admin: ADMIN_PAYMENT_CODES was set to
+// the simulated wallet's code before the backend was imported.
+{
+  const before = await api("/api/admin/products");
+  ok(before.status === 200 && Array.isArray(before.body.products),
+     "admin can list products");
+
+  const made = await api("/api/admin/product", "POST", {
+    name: "A thing", description: "# heading", price_usd_cents: 1999,
+    inventory: 3, status: "listed", digital_payload_ref: "secret/path.txt",
+  });
+  ok(made.status === 200 && made.body.product.id && made.body.product.price_usd_cents === 1999,
+     "a well-formed product is created and gets an id");
+  const pid = made.body.product.id;
+
+  // The whole point of productListView: the fulfilment secret is not in a bulk
+  // response, only a boolean saying one exists.
+  ok(made.body.product.digital_payload_ref === undefined && made.body.product.has_payload === true,
+     "the create response reports that a payload exists without echoing it");
+  const listed = await api("/api/admin/products");
+  const row = listed.body.products.find((p) => p.id === pid);
+  ok(row && row.digital_payload_ref === undefined && row.has_payload === true,
+     "and the product list never carries the fulfilment secret");
+  const one = await api("/api/admin/product/" + pid);
+  ok(one.status === 200 && one.body.product.digital_payload_ref === "secret/path.txt",
+     "an explicit single-product read does return it, which is how it gets edited");
+
+  // store.ts is the chokepoint; the route must relay its refusal as a 400 with
+  // the store's own words, not swallow it into a 500.
+  const frac = await api("/api/admin/product", "POST", { name: "x", price_usd_cents: 19.99, inventory: 1 });
+  ok(frac.status === 400 && /whole num/.test(frac.body.error || ""),
+     "a fractional price is refused by the store and relayed as 400: " + JSON.stringify(frac.body.error));
+  const neg = await api("/api/admin/product", "POST", { name: "x", price_usd_cents: 100, inventory: -1 });
+  ok(neg.status === 400 && /inventory/.test(neg.body.error || ""),
+     "negative inventory is refused as 400, not 500");
+
+  // An edit keeps the id, because invoices point at it.
+  const edited = await api("/api/admin/product", "POST", { id: pid, price_usd_cents: 2500 });
+  ok(edited.status === 200 && edited.body.product.id === pid && edited.body.product.price_usd_cents === 2500
+     && edited.body.product.name === "A thing",
+     "an edit keeps the id and the fields it did not mention");
+
+  const invs = await api("/api/admin/invoices");
+  ok(invs.status === 200 && Array.isArray(invs.body.invoices), "admin can list invoices");
+  const writeInv = await api("/api/admin/invoice", "POST", { id: "i1", status: "fulfilled" });
+  ok(writeInv.status === 404,
+     "there is no admin route that writes an invoice: an order is not editable by hand");
+
+  const gone = await api("/api/admin/product/delete", "POST", { id: pid });
+  ok(gone.status === 200 && (await api("/api/admin/product/" + pid)).status === 404,
+     "a product deletes, and reads 404 afterwards");
+  const ghost = await api("/api/admin/product/delete", "POST", { id: "nope" });
+  ok(ghost.status === 404, "deleting something that is not there is a 404, not a silent ok");
+}
+
+// The store routes are admin-gated exactly like moderation. Prove it with the
+// session dropped rather than by reading the code.
+{
+  const saved = cookie; cookie = "";
+  const anon = await api("/api/admin/products");
+  const anonWrite = await api("/api/admin/product", "POST", { name: "x", price_usd_cents: 1 });
+  cookie = saved;
+  ok(anon.status === 401 && anonWrite.status === 401,
+     "an unauthenticated caller gets 401 from both the product list and the write");
+}
+
 await fsp.rm(process.env.PUBLIC_DATA_DIR, { recursive: true, force: true });
 
 console.log(`\nall ${passed} checks passed`);

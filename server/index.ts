@@ -270,6 +270,100 @@ route("GET", /^\/api\/me$/, async (req, res) => {
   json(res, 200, { authenticated: true, paymentCode: s.paymentCode, admin: isAdmin(s.paymentCode), submissions: mine });
 });
 
+// ---- admin (store) ---------------------------------------------------------
+// The shop's side of the admin surface. Same gate as moderation below: an
+// authenticated session whose payment code is in ADMIN_CODES.
+//
+// These routes are deliberately thin. store.ts is the single write door and it
+// already refuses a fractional price, negative inventory, an invoice with no
+// signed address record, and a stale locked rate. Re-checking any of that here
+// would create a second, drifting copy of the rules, so a refusal from the
+// store is relayed as a 400 with its own message rather than reworded.
+
+/** Everything the admin panel shows for a product EXCEPT the fulfilment secret. */
+const productListView = (p) => ({
+  id: p.id, name: p.name, description: p.description,
+  price_usd_cents: p.price_usd_cents, inventory: p.inventory,
+  image_path: p.image_path ?? null, status: p.status,
+  // The payload ref is what the buyer receives once payment confirms. It is
+  // omitted from the LIST and offered only on an explicit single-product read,
+  // so no one call can dump every secret the shop holds. The catalogue
+  // allowlist keeps it out of the public file; this keeps it out of the bulk
+  // admin response, which is the other place it would leak in quantity.
+  has_payload: !!p.digital_payload_ref,
+  created_at: p.created_at || null, updated_at: p.updated_at || null,
+});
+
+route("GET", /^\/api\/admin\/products$/, async (req, res) => {
+  if (!(await adminFrom(req, res))) return;
+  const products = (await store.listProducts()).map(productListView);
+  json(res, 200, { admin: true, products });
+});
+
+route("GET", /^\/api\/admin\/product\/[A-Za-z0-9_-]+$/, async (req, res) => {
+  if (!(await adminFrom(req, res))) return;
+  const id = String(req.url).split("/").pop();
+  const rec = await store.getProduct(id);
+  if (!rec) return json(res, 404, { error: "not found" });
+  json(res, 200, { product: rec });
+});
+
+route("POST", /^\/api\/admin\/product$/, async (req, res) => {
+  if (!(await adminFrom(req, res))) return;
+  let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: "invalid JSON" }); }
+  const now = new Date().toISOString();
+  const existing = body.id ? await store.getProduct(String(body.id)) : null;
+  // An id the caller did not supply is generated here rather than derived from
+  // the name: a slug changes when the name is edited, and a product id that
+  // moves breaks every invoice already pointing at it.
+  const rec = {
+    ...(existing || {}),
+    id: existing ? existing.id : (body.id ? String(body.id) : "p_" + randomBytes(8).toString("hex")),
+    name: body.name ?? existing?.name,
+    description: body.description ?? existing?.description ?? "",
+    price_usd_cents: body.price_usd_cents ?? existing?.price_usd_cents,
+    inventory: body.inventory === undefined ? (existing?.inventory ?? null) : body.inventory,
+    image_path: body.image_path ?? existing?.image_path ?? null,
+    digital_payload_ref: body.digital_payload_ref ?? existing?.digital_payload_ref ?? null,
+    status: body.status ?? existing?.status ?? "draft",
+    created_at: existing?.created_at || now,
+    updated_at: now,
+  };
+  try {
+    const saved = await store.putProduct(rec);
+    json(res, 200, { ok: true, product: productListView(saved) });
+  } catch (e) {
+    // store.ts refused it. Its message names the field and the reason.
+    json(res, 400, { error: String(e && e.message || e) });
+  }
+});
+
+route("POST", /^\/api\/admin\/product\/delete$/, async (req, res) => {
+  if (!(await adminFrom(req, res))) return;
+  let body; try { body = JSON.parse(await readBody(req)); } catch { return json(res, 400, { error: "invalid JSON" }); }
+  if (!(await store.getProduct(String(body.id)))) return json(res, 404, { error: "not found" });
+  await store.deleteProduct(String(body.id));
+  json(res, 200, { ok: true });
+});
+
+// Invoices are READ-ONLY here. They are created by checkout and advanced by
+// the payment watcher; an admin who could rewrite one by hand could mark an
+// unpaid order fulfilled, which is the one thing an order record exists to
+// make impossible to do silently.
+route("GET", /^\/api\/admin\/invoices$/, async (req, res) => {
+  if (!(await adminFrom(req, res))) return;
+  const invoices = (await store.listInvoices()).map((i) => ({
+    id: i.id, product_id: i.product_id, quantity: i.quantity, status: i.status,
+    address: i.address, address_index: i.address_index,
+    price_usd_cents: i.price_usd_cents, amount_sats: i.amount_sats,
+    rate_usd: i.rate_usd, rate_at: i.rate_at, expires_at: i.expires_at,
+    paid_sats: i.paid_sats ?? 0, txid: i.txid ?? null,
+    paymentCode: i.paymentCode ?? null,
+    created_at: i.created_at || null, updated_at: i.updated_at || null,
+  }));
+  json(res, 200, { admin: true, invoices });
+});
+
 // ---- admin (moderation) ----------------------------------------------------
 // All require an authenticated session whose payment code is in ADMIN_CODES.
 async function adminFrom(req, res) {
