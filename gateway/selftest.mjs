@@ -404,6 +404,96 @@ test("a nonsensical pool range is refused", () => {
   assert.throws(() => buildPool(storeId, BOB_CODE, { start: 0, count: 0 }), /--count/);
 });
 
+// ---- first-run identity -----------------------------------------------------
+console.log("\nfirst-run identity");
+{
+  const {
+    loadOrCreate, saveState, revealMnemonic, bindReceiver, readiness, newMnemonic, SEED_FILE, STATE_FILE,
+  } = await import("./bootstrap.ts");
+  const { readFile, writeFile } = await import("node:fs/promises");
+
+  const dir = await mkdtemp(path.join(os.tmpdir(), "mise-identity-"));
+
+  await testAsync("a fresh directory gets an identity, and reports that it made one", async () => {
+    const { state, created } = await loadOrCreate(dir);
+    assert.equal(created, true);
+    assert.ok(state.paymentCode.startsWith("PM8T"), state.paymentCode);
+    assert.ok(state.notificationAddress.length > 0);
+    assert.equal(state.receiverPaymentCode, null);
+    assert.equal(state.notificationTxid, null);
+  });
+
+  await testAsync("the generated mnemonic is twelve valid BIP39 words", async () => {
+    const words = await revealMnemonic(dir);
+    assert.equal(words.trim().split(/\s+/).length, 12);
+    assert.ok(bip39.validateMnemonic(words));
+    assert.notEqual(words, newMnemonic());     // not a constant
+  });
+
+  await testAsync("the seed file is 0600: it is a spending key once the bot is funded", async () => {
+    const st = await stat(path.join(dir, SEED_FILE));
+    assert.equal(st.mode & 0o777, 0o600, (st.mode & 0o777).toString(8));
+  });
+
+  await testAsync("a second load returns the same identity and does not rewrite the seed", async () => {
+    const first = await readFile(path.join(dir, SEED_FILE), "utf8");
+    const a = await loadOrCreate(dir);
+    const b = await loadOrCreate(dir);
+    assert.equal(a.state.paymentCode, b.state.paymentCode);
+    assert.equal(b.created, false);
+    assert.equal(await readFile(path.join(dir, SEED_FILE), "utf8"), first);
+  });
+
+  await testAsync("the identity state never carries the mnemonic", async () => {
+    const raw = await readFile(path.join(dir, STATE_FILE), "utf8");
+    const words = await revealMnemonic(dir);
+    assert.ok(!raw.includes(words));
+    for (const w of words.split(/\s+/)) assert.ok(!new RegExp(`"[^"]*\\b${w}\\b`).test(raw), w);
+  });
+
+  await testAsync("binding the operator's code records it, and readiness moves on", async () => {
+    let { state } = await loadOrCreate(dir);
+    assert.deepEqual(readiness(state), { ready: false, needsReceiver: true, needsNotification: true });
+    state = bindReceiver(state, BOB_CODE);
+    assert.equal(state.receiverPaymentCode, BOB_CODE);
+    assert.deepEqual(readiness(state), { ready: false, needsReceiver: false, needsNotification: true });
+    await saveState(dir, state);
+  });
+
+  await testAsync("a shop cannot make itself its own receiver", async () => {
+    const { state } = await loadOrCreate(dir);
+    assert.throws(() => bindReceiver(state, state.paymentCode), /cannot be the shop's own/);
+  });
+
+  await testAsync("garbage is refused by parsing it, not by looking at its shape", async () => {
+    const { state } = await loadOrCreate(dir);
+    assert.throws(() => bindReceiver(state, "PM8Tnotacode"), /not a usable BIP47 payment code/);
+    assert.throws(() => bindReceiver(state, ""), /not a usable BIP47 payment code/);
+  });
+
+  await testAsync("the receiver cannot change once the notification is on-chain", async () => {
+    let { state } = await loadOrCreate(dir);
+    state = { ...state, notificationTxid: "f".repeat(64), notificationSentAt: new Date().toISOString() };
+    assert.throws(() => bindReceiver(state, ALICE_CODE), /already on-chain/);
+    // Re-binding the SAME receiver is not a change, so it is allowed.
+    assert.equal(bindReceiver(state, state.receiverPaymentCode).receiverPaymentCode, state.receiverPaymentCode);
+    assert.equal(readiness(state).ready, true);
+  });
+
+  await testAsync("a swapped seed is refused rather than silently deriving a new chain", async () => {
+    const swapped = await mkdtemp(path.join(os.tmpdir(), "mise-identity-"));
+    const { state } = await loadOrCreate(swapped);
+    // Put a DIFFERENT seed under the recorded identity, which is what restoring
+    // the wrong backup looks like.
+    await writeFile(path.join(swapped, SEED_FILE),
+      JSON.stringify({ mnemonic: newMnemonic(), network: "bitcoin", createdAt: state.createdAt }), { mode: 0o600 });
+    await assert.rejects(() => loadOrCreate(swapped), /no longer derives the recorded payment code/);
+    await rm(swapped, { recursive: true, force: true });
+  });
+
+  await rm(dir, { recursive: true, force: true });
+}
+
 server.close();
 await rm(tmp, { recursive: true, force: true });
 

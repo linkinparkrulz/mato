@@ -14,9 +14,7 @@
   "dependencies": {
     "@dojo-tools/bip47": "2.0.0",
     "@dojo-tools/bitcoinjs-message": "4.0.0",
-    "@bitcoinerlab/secp256k1": "1.2.0"
-  },
-  "devDependencies": {
+    "@bitcoinerlab/secp256k1": "1.2.0",
     "bip39": "3.1.0"
   }
 }
