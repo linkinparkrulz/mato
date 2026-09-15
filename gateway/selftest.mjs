@@ -23,7 +23,7 @@ import {
 } from "./derive.ts";
 import { StoreIdentity, canonicalAddress, verifySignedAddress } from "./identity.ts";
 import { IndexStore, RECLAIM_QUARANTINE_MS } from "./index-state.ts";
-import { makeHandler, serve } from "./gateway.mjs";
+import { makeHandler, makeShop, serve } from "./gateway.mjs";
 import { buildPool, verifyPool } from "./pool.mjs";
 
 let passed = 0, failed = 0;
@@ -404,6 +404,49 @@ await testAsync("the identity ops are absent unless the gateway owns a shop", as
   for (const op of ["identity", "bind-receiver", "set-active", "set-dojo", "reveal-seed"]) {
     assert.match((await handle({ op })).error, /not started with a shop identity/, op);
   }
+});
+
+await testAsync("switching the active network takes effect without a restart", async () => {
+  // The bug this covers was visible in the panel and invisible in the process:
+  // the operator switched to testnet4, the card showed testnet4, and the gateway
+  // went on quoting mainnet because the handler had captured its network at
+  // construction. So the assertion is specifically that ONE handler, never
+  // rebuilt, changes what it derives.
+  const { loadOrCreate } = await import("./bootstrap.ts");
+  const dir = await mkdtemp(path.join(os.tmpdir(), "mise-switch-"));
+  const { identities, state } = await loadOrCreate(dir);
+  const shop = makeShop({ dataDir: dir, state, identities });
+  const indexStores = Object.fromEntries(
+    Object.keys(identities).map((n) => [n, new IndexStore(dir, n)]));
+  const handle = makeHandler({ personalCode: BOB_CODE, indexStores, shop });
+
+  const before = await handle({ op: "status" });
+  assert.equal(before.network, "bitcoin");
+  const mainAddr = await handle({ op: "next" });
+  assert.equal(mainAddr.network, "bitcoin");
+
+  const sw = await handle({ op: "set-active", network: "testnet4" });
+  assert.equal(sw.ok, true);
+  assert.equal(sw.active, "testnet4");
+  assert.ok(!("restartRequired" in sw), "a switch that needs a restart is a switch that did not happen");
+
+  const after = await handle({ op: "status" });
+  assert.equal(after.network, "testnet4");
+  assert.notEqual(after.paymentCode, before.paymentCode);
+  assert.notEqual(after.depositAddress, before.depositAddress);
+
+  const tnetAddr = await handle({ op: "next" });
+  assert.equal(tnetAddr.network, "testnet4");
+  assert.notEqual(tnetAddr.address, mainAddr.address);
+  // Each chain keeps its own counter across the switch: testnet4's first
+  // allocation is index 0, not index 1 inherited from mainnet.
+  assert.equal(mainAddr.index, 0);
+  assert.equal(tnetAddr.index, 0);
+  // And switching back resumes mainnet where it was left, rather than restarting.
+  await handle({ op: "set-active", network: "bitcoin" });
+  assert.equal((await handle({ op: "next" })).index, 1);
+
+  await rm(dir, { recursive: true, force: true });
 });
 
 // ---- the air-gapped alternative ---------------------------------------------

@@ -1367,13 +1367,26 @@ async function loadJSON(url){
     if(!b) return "";
     const rd = b.readiness || {};
     const chip = (v) => esc(v.slice(0,8))+"\u2026"+esc(v.slice(-8));
+    // Two different things, kept apart. The buttons choose which network you are
+    // LOOKING at; SHOP.active is the chain the shop actually quotes on. Marking
+    // the live one says which is which; labelling the others "(inactive)" read
+    // as a fault and left no way to change it.
     return '<h3 style="margin:22px 0 8px">Shop wallet</h3>'+
       '<div class="seg" style="margin-bottom:10px">'+
         Object.keys(SHOP.networks).map(n =>
           '<button data-shopnet="'+esc(n)+'" class="'+(n===net?"on":"")+'">'+esc(n)+
-          (n===SHOP.active?"":" (inactive)")+'</button>').join("")+
+          (n===SHOP.active?" \u2022 live":"")+'</button>').join("")+
       '</div>'+
       '<div class="acard">'+
+        (net===SHOP.active
+          ? '<p style="font-size:12.5px;color:var(--faint)">Customers are quoted addresses on <b>'+esc(net)+'</b>.</p>'
+          // Looking at a chain the shop is not on. Said before anything else on
+          // the card, because everything below it — the funding address most of
+          // all — describes a chain no customer is being quoted on.
+          : '<p style="font-size:12.5px;border:1px solid var(--down);border-radius:8px;padding:8px 12px">'+
+            'You are looking at <b>'+esc(net)+'</b>, but the shop is quoting customers on <b>'+esc(SHOP.active)+'</b>. '+
+            'Nothing below affects them until you switch. '+
+            '<button class="abtn" data-shop="switch" style="margin-left:6px">Trade on '+esc(net)+'</button></p>')+
         '<p style="font-size:12.5px">Payment code <code class="pc-chip" data-copy="'+esc(b.paymentCode)+'">'+chip(b.paymentCode)+'</code></p>'+
         // The funding prompt, pointed at the DEPOSIT address. A notification
         // transaction spends an input the sender owns; this wallet is the
@@ -1706,6 +1719,17 @@ async function loadJSON(url){
       if(r.status === 200) SHOP_SEED = r.body.mnemonic;
       else ADMIN_NOTICE = "Could not read the seed: " + ((r.body && r.body.error) || ("HTTP " + r.status));
       renderAdminPanel(); return;
+    }
+    if(act === "switch"){
+      // The route and the gateway op have existed since the identity routes
+      // landed; this is the button that was missing, which is why the toggle
+      // looked like a switch and behaved like a viewer.
+      const r = await api.call("/admin/store-identity/network", "POST", { network: net });
+      if(r.status !== 200) ADMIN_NOTICE = (r.body && r.body.error) || ("HTTP " + r.status);
+      else ADMIN_NOTICE = null;
+      // Reload rather than assume it worked: the gateway decides what active is
+      // now, and the card is about to claim which chain customers are quoted on.
+      await loadShop(); return;
     }
     if(act === "bind"){
       const input = /** @type {HTMLInputElement|null} */ (document.getElementById("shop-recv"));

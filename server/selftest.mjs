@@ -101,7 +101,7 @@ const gatewaySrv = net.createServer((c) => {
           gatewayState.networks[req.network].receiverPaymentCode = req.code;
           out = { ok: true, network: req.network, ...gatewayState.networks[req.network] };
         }
-      } else if (req.op === "set-active") { gatewayState.active = req.network; out = { ok: true, active: req.network, restartRequired: true }; }
+      } else if (req.op === "set-active") { gatewayState.active = req.network; out = { ok: true, active: req.network }; }
       else out = { error: `unknown op: ${req.op}` };
       c.write(JSON.stringify(out) + "\n");
     }
@@ -2310,8 +2310,13 @@ ok(pub.nodes.some((n) => n.paynym === "+testoperator"), "approved submission app
      "a gateway refusal arrives as a 400 carrying the gateway's message: " + JSON.stringify(bad.body.error));
 
   const sw = await api("/api/admin/store-identity/network", "POST", { network: "testnet4" });
-  ok(sw.status === 200 && sw.body.active === "testnet4" && sw.body.restartRequired === true,
-     "switching networks says plainly that the running gateway serves the old one until restarted");
+  ok(sw.status === 200 && sw.body.active === "testnet4" && !("restartRequired" in sw.body),
+     "switching networks takes effect in the running gateway, so nothing promises a restart");
+  // And the switch is what the next read sees, rather than the panel having to
+  // remember what it asked for.
+  const afterSwitch = await api("/api/admin/store-identity");
+  ok(afterSwitch.status === 200 && afterSwitch.body.active === "testnet4",
+     "the identity read reports the new active network");
 }
 
 // A gateway that is not running is an operator problem with a remedy, and must

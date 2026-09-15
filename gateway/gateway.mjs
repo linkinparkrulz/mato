@@ -50,8 +50,44 @@ const ADDRESS_TYPE = parseAddressType(process.env.ADDRESS_TYPE);
  * socket with a throwaway wallet instead of asserting against a reimplementation
  * of it.
  */
-export function makeHandler({ identity, personalCode, indexStore, addressType = DEFAULT_ADDRESS_TYPE, shop = null }) {
-  const network = identity.network;
+export function makeHandler({
+  identity = null, personalCode = null, indexStore = null,
+  addressType = DEFAULT_ADDRESS_TYPE, shop = null, indexStores = null,
+}) {
+  // Two shapes, not five optional arguments that might combine into anything:
+  // either a `shop` with `indexStores` keyed by network, which follows the
+  // shop's active chain, or a single `identity` with a single `indexStore`,
+  // which is a wallet with no shop state and cannot switch.
+  if (!shop && (!identity || !indexStore)) {
+    throw new Error("a gateway needs either a shop with per-network index stores, or one identity and one index store");
+  }
+  /**
+   * Which chain this request runs on, resolved per request.
+   *
+   * A gateway that owns a shop follows the shop's ACTIVE network and re-reads it
+   * every time. Capturing it at construction is what made "set-active" report
+   * restartRequired, and a switch that needs a restart is one an operator makes
+   * and then watches not happen — the panel said testnet4, the process kept
+   * quoting mainnet, and nothing in between said so.
+   *
+   * A gateway with no shop is the self-test's throwaway wallet: one identity,
+   * one store, no state to consult. Kept because it is what proves derivation
+   * works with no shop at all.
+   */
+  const active = () => {
+    if (!shop) return { id: identity, network: identity.network, store: indexStore };
+    const network = shop.state().active;
+    const id = shop.identities[network];
+    const store = indexStores && indexStores[network];
+    if (!id || !store) {
+      // Not reachable through the socket: set-active refuses an unknown network
+      // before it is ever stored. If it happens, a hand-edited state file has
+      // named a chain this build does not derive, and deriving on the wrong one
+      // would be worse than refusing.
+      throw new Error(`this gateway has no identity or index store for ${network}`);
+    }
+    return { id, network, store };
+  };
 
   /**
    * The receiver, resolved per request rather than fixed at construction.
@@ -65,60 +101,64 @@ export function makeHandler({ identity, personalCode, indexStore, addressType = 
    * State wins over the environment variable where both exist, because the
    * panel is the live source and PERSONAL_CODE is a headless convenience.
    */
-  const receiver = () => (shop ? shop.state().networks[network]?.receiverPaymentCode : null) || personalCode || null;
+  const receiver = (network) =>
+    (shop ? shop.state().networks[network]?.receiverPaymentCode : null) || personalCode || null;
 
-  const needReceiver = () => ({
+  const needReceiver = (network) => ({
     error: "this shop has no receiver yet: bind the operator's personal payment code " +
       `for ${network} before asking for an address, or every payment would derive on a chain nobody owns`,
   });
 
   // Deriving and signing one index, in one place, so "next" and "peek" cannot
   // drift into producing different records for the same index.
-  const recordFor = (index, personal) => identity.signAddress({
+  const recordFor = ({ id, network }, index, personal) => id.signAddress({
     v: 1,
-    address: addressFor(identity.code, personal, index, addressType, network),
+    address: addressFor(id.code, personal, index, addressType, network),
     index,
     type: addressType,
     network,
-    paymentCode: identity.paymentCode(),
+    paymentCode: id.paymentCode(),
   });
 
   return async function handle(req) {
     switch (req && req.op) {
       case "next": {
-        const personal = receiver();
-        if (!personal) return needReceiver();
-        const index = await indexStore.allocate();
-        return recordFor(index, personal);
+        const cur = active();
+        const personal = receiver(cur.network);
+        if (!personal) return needReceiver(cur.network);
+        const index = await cur.store.allocate();
+        return recordFor(cur, index, personal);
       }
       case "peek": {
-        const personal = receiver();
-        if (!personal) return needReceiver();
+        const cur = active();
+        const personal = receiver(cur.network);
+        if (!personal) return needReceiver(cur.network);
         if (!Number.isInteger(req.index) || req.index < 0) {
           return { error: "peek needs a non-negative integer index" };
         }
-        return recordFor(req.index, personal);
+        return recordFor(cur, req.index, personal);
       }
       case "release": {
         if (!Number.isInteger(req.index)) return { error: "release needs an integer index" };
-        return { ok: await indexStore.release(req.index) };
+        return { ok: await active().store.release(req.index) };
       }
       case "settle": {
         if (!Number.isInteger(req.index)) return { error: "settle needs an integer index" };
-        return { ok: await indexStore.settle(req.index) };
+        return { ok: await active().store.settle(req.index) };
       }
       case "status": {
+        const { id, network, store } = active();
         return {
-          paymentCode: identity.paymentCode(),
-          notificationAddress: identity.notificationAddress(),
+          paymentCode: id.paymentCode(),
+          notificationAddress: id.notificationAddress(),
           // Where the operator funds this bot. Absent on a gateway started
           // without a shop identity — the self-test drives derivation with a
           // throwaway wallet that has no deposit chain and needs none.
           depositAddress: shop ? shop.state().networks[network]?.depositAddress ?? null : null,
-          personalCode: receiver(),
+          personalCode: receiver(network),
           type: addressType,
           network,
-          ...(await indexStore.status()),
+          ...(await store.status()),
         };
       }
       // ---- identity management -------------------------------------------
@@ -218,10 +258,11 @@ export function makeShop({ dataDir, state, identities }) {
     async setActive(network) {
       current = setActive(current, network);
       await saveState(dataDir, current);
-      // The running process derives on the network it booted with, so a switch
-      // takes effect when it restarts. Said plainly rather than silently
-      // continuing to quote on the old chain.
-      return { ok: true, active: current.active, restartRequired: true };
+      // Live. The handler reads state().active on every request, so the next
+      // address quoted is already on the new chain. This used to report
+      // restartRequired, which meant an operator could switch the panel and
+      // watch the process keep quoting the old chain with nothing saying so.
+      return { ok: true, active: current.active };
     },
     async setDojo(network, dojo) {
       current = setDojo(current, network, dojo);
@@ -241,10 +282,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const { identities, state, created } = await loadOrCreate(DATA);
   const identity = identities[state.active];
   const shop = makeShop({ dataDir: DATA, state, identities });
+  // One store per chain, built once and kept. IndexStore caches its state in
+  // memory after the first load, so a second instance over the same file would
+  // hand out an index the first has already issued — the failure index-state.ts
+  // exists to prevent. Constructing them per request would do exactly that as
+  // soon as the network became switchable.
+  const indexStores = Object.fromEntries(
+    Object.keys(identities).map((n) => [n, new IndexStore(DATA, n)]));
   const handle = makeHandler({
-    identity,
+    // No `identity`: with a shop present the handler resolves it from
+    // state().active per request, so passing one here would only suggest the
+    // boot network still decided something.
     personalCode: process.env.PERSONAL_CODE,
-    indexStore: new IndexStore(DATA, state.active),
+    indexStores,
     addressType: ADDRESS_TYPE,
     shop,
   });
